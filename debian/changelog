@@ -1,0 +1,5 @@
+libpve-guest-common-perl (1.0-1) unstable; urgency=medium
+
+  * initial release, split out from libe-pve-common-perl
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 24 Jan 2017 14:07:48 +0100
