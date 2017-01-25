@@ -22,6 +22,8 @@ install: PVE
 	install -d ${PERL5DIR}/PVE
 	install -m 0644 PVE/AbstractConfig.pm ${PERL5DIR}/PVE/
 	install -m 0644 PVE/AbstractMigrate.pm ${PERL5DIR}/PVE/
+	install -d ${PERL5DIR}/PVE/VZDump
+	install -m 0644 PVE/VZDump/Plugin.pm ${PERL5DIR}/PVE/VZDump/
 
 .PHONY: upload
 upload: ${DEB}
