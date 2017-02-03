@@ -12,7 +12,8 @@ DOCDIR=${DESTDIR}/usr/share/doc/${PACKAGE}
 all:
 
 .PHONY: deb
-deb ${DEB}:
+deb: ${DEB}
+${DEB}:
 	rm -rf build
 	rsync -a * build
 	cd build; dpkg-buildpackage -b -us -uc
