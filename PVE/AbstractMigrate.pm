@@ -127,9 +127,6 @@ my $eval_int = sub {
 
 my @ssh_opts = ('-o', 'BatchMode=yes');
 my @ssh_cmd = ('/usr/bin/ssh', @ssh_opts);
-my @scp_cmd = ('/usr/bin/scp', @ssh_opts);
-my @rsync_opts = ('-aHAX', '--delete', '--numeric-ids');
-my @rsync_cmd = ('/usr/bin/rsync', @rsync_opts);
 
 sub migrate {
     my ($class, $node, $nodeip, $vmid, $opts) = @_;
@@ -142,24 +139,18 @@ sub migrate {
 	vmid => $vmid,
 	node => $node,
 	nodeip => $nodeip,
-	rsync_cmd => [ @rsync_cmd ],
 	rem_ssh => [ @ssh_cmd, "root\@$nodeip" ],
-	scp_cmd => [ @scp_cmd ],
     };
 
     $self = bless $self, $class;
 
     my $starttime = time();
 
-    local $ENV{RSYNC_RSH} = join(' ', @ssh_cmd);
-
     local $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = $SIG{PIPE} = sub {
 	$self->log('err', "received interrupt - delayed");
 	$self->{delayed_interrupt} = 1;
     };
 
-    local $ENV{RSYNC_RSH} = join(' ', @ssh_cmd);
-    
     # lock container during migration
     eval { $self->lock_vm($self->{vmid}, sub {
 
