@@ -329,9 +329,12 @@ sub __snapshot_apply_config {
 	snapshots => $conf->{snapshots},
     };
 
-    # keep description and list of unused disks
+    # keep description, list of unused disks and replica parameters
     foreach my $k (keys %$conf) {
-	next if !($k =~ m/^unused\d+$/ || $k eq 'description');
+	next if !($k =~ m/^unused\d+$/ || $k eq 'description'
+		  || $k eq 'replica' || $k eq 'replica_interval'
+		  || $k eq 'replica_target' || $k eq 'replica_rate_limit');
+
 	$newconf->{$k} = $conf->{$k};
     }
 
