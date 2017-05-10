@@ -314,7 +314,6 @@ sub __snapshot_copy_config {
 	next if $k eq 'lock';
 	next if $k eq 'digest';
 	next if $k eq 'description';
-	next if $k eq 'replicate';
 	next if $k =~ m/^unused\d+$/;
 
 	$dest->{$k} = $source->{$k};
@@ -330,10 +329,9 @@ sub __snapshot_apply_config {
 	snapshots => $conf->{snapshots},
     };
 
-    # keep description, list of unused disks and replicate parameters
+    # keep description and list of unused disks
     foreach my $k (keys %$conf) {
-	next if !($k =~ m/^unused\d+$/ || $k eq 'description' ||
-		  $k eq 'replicate');
+	next if !($k =~ m/^unused\d+$/ || $k eq 'description');
 
 	$newconf->{$k} = $conf->{$k};
     }
