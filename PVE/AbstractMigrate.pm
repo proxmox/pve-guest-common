@@ -4,6 +4,7 @@ use strict;
 use warnings;
 use POSIX qw(strftime);
 use PVE::Tools;
+use PVE::Cluster;
 
 my $msg2text = sub {
     my ($level, $msg) = @_;
@@ -82,27 +83,6 @@ sub cmd_logerr {
     return &$run_command_quiet_full($self, $cmd, 1, %param);
 }
 
-sub get_remote_migration_ip {
-    my ($self) = @_;
-
-    my $ip;
-
-    my $cmd = [@{$self->{rem_ssh}}, 'pvecm', 'mtunnel', '--get_migration_ip'];
-
-    push @$cmd, '--migration_network', $self->{opts}->{migration_network}
-      if defined($self->{opts}->{migration_network});
-
-    PVE::Tools::run_command($cmd, outfunc => sub {
-	my $line = shift;
-
-	if ($line =~ m/^ip: '($PVE::Tools::IPRE)'$/) {
-	   $ip = $1;
-	}
-    });
-
-    return $ip;
-}
-
 my $eval_int = sub {
     my ($self, $func, @param) = @_;
 
@@ -128,18 +108,28 @@ my $eval_int = sub {
 my @ssh_opts = ('-o', 'BatchMode=yes');
 my @ssh_cmd = ('/usr/bin/ssh', @ssh_opts);
 
+# FIXME: nodeip is now unused
 sub migrate {
     my ($class, $node, $nodeip, $vmid, $opts) = @_;
 
     $class = ref($class) || $class;
+
+    my $migration_network = $opts->{migration_network};
+    if (!defined($migration_network)) {
+	my $dc_conf = PVE::Cluster::cfs_read_file('datacenter.cfg');
+	$migration_network = $dc_conf->{migration}->{network};
+    }
+    my $ssh_info = PVE::Cluster::get_ssh_info($node, $migration_network);
+    $nodeip = $ssh_info->{ip};
 
     my $self = {
 	delayed_interrupt => 0,
 	opts => $opts,
 	vmid => $vmid,
 	node => $node,
+	ssh_info => $ssh_info,
 	nodeip => $nodeip,
-	rem_ssh => [ @ssh_cmd, "root\@$nodeip" ],
+	rem_ssh => PVE::Cluster::ssh_info_to_command($ssh_info)
     };
 
     $self = bless $self, $class;
@@ -158,16 +148,7 @@ sub migrate {
 	&$eval_int($self, sub { $self->{running} = $self->prepare($self->{vmid}); });
 	die $@ if $@;
 
-	# get dedicated migration address from remote node, if set.
-	# as a side effect this checks also if the other node can be accessed
-	# through ssh and that it has quorum
-	my $remote_migration_ip = $self->get_remote_migration_ip();
-
-	if (defined($remote_migration_ip)) {
-	    $nodeip = $remote_migration_ip;
-	    $self->{nodeip} = $remote_migration_ip;
-	    $self->{rem_ssh} = [ @ssh_cmd, "root\@$nodeip" ];
-
+	if (defined($migration_network)) {
 	    $self->log('info', "use dedicated network address for sending " .
 	               "migration traffic ($self->{nodeip})");
 
