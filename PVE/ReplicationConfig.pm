@@ -164,6 +164,21 @@ sub lock {
     }
 }
 
+sub check_for_existing_jobs {
+    my ($cfg, $vmid, $noerr) = @_;
+
+    foreach my $id (keys %{$cfg->{ids}}) {
+	my $data = $cfg->{ids}->{$id};
+
+	if ($data->{guest} == $vmid) {
+	    return 1 if $noerr;
+	    die "There is a replication job '$id' for guest '$vmid' - " .
+		"Please remove that first.\n"
+	}
+    }
+
+    return undef;
+}
 
 package PVE::ReplicationConfig::Cluster;
 
