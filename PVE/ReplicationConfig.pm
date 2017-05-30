@@ -41,6 +41,12 @@ my $defaultData = {
 	    optional => 1,
 	    maxLength => 4096,
 	},
+	remove_job => {
+	    description => "Mark the replication job for removal. The job will remove all local replication snapshots. When set to 'full', it also tries to remove replicated volumes on the target. The job then removes itself from the configuration file.",
+	    type => 'string',
+	    enum => ['local', 'full'],
+	    optional => 1,
+	},
 	guest => get_standard_option('pve-vmid', {
 	    optional => 1,
 	    completion => \&PVE::Cluster::complete_vmid }),
@@ -205,6 +211,7 @@ sub options {
 	comment => { optional => 1 },
 	rate => { optional => 1 },
 	schedule => { optional => 1 },
+	remove_job => { optional => 1 },
     };
 }
 
