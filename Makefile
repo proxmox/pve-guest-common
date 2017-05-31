@@ -35,7 +35,7 @@ upload: ${DEB}
 distclean: clean
 
 clean:
-	rm -rf ./build *.deb *.changes
+	rm -rf ./build *.deb *.changes *.buildinfo
 
 .PHONY: dinstall
 dinstall: ${DEB}
