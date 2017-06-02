@@ -22,8 +22,8 @@ cfs_register_file($replication_cfg_filename,
 
 PVE::JSONSchema::register_standard_option('pve-replication-id', {
     description => "Replication Job ID.",
-    type => 'string', format => 'pve-configid',
-    maxLength => 32, # keep short to reduce snapshot name length
+    type => 'string',
+    pattern => '[1-9][0-9]{2,8}-\d{1,9}',
 });
 
 my $defaultData = {
@@ -73,12 +73,16 @@ sub private {
 sub parse_section_header {
     my ($class, $line) = @_;
 
-    if ($line =~ m/^(\S+):\s*(\S+)\s*$/) {
-	my ($type, $id) = (lc($1), $2);
+    if ($line =~ m/^(\S+):\s*(\d+)-(\d+)\s*$/) {
+	my ($type, $guest, $subid) = (lc($1), int($2), int($3));
+	my $id = "$guest-$subid"; # use parsed integers
 	my $errmsg = undef; # set if you want to skip whole section
-	eval { PVE::JSONSchema::pve_verify_configid($id); };
+	eval {
+	    die "invalid replication job id '$id'\n" if $subid < 1;
+	    PVE::JSONSchema::pve_verify_vmid($guest);
+	};
 	$errmsg = $@ if $@;
-	my $config = {};
+	my $config = { guest => $guest };
 	return ($type, $id, $errmsg, $config);
     }
     return undef;
