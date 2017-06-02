@@ -5,8 +5,8 @@ use strict;
 use JSON;
 
 use PVE::Tools;
+use PVE::GuestHelpers;
 use PVE::ReplicationConfig;
-
 
 # Note: regression tests can overwrite $state_path for testing
 our $state_path = "/var/lib/pve-manager/pve-replication-state.json";
@@ -65,7 +65,7 @@ sub write_job_state {
     my $vmid = $jobcfg->{guest};
     my $tid = $plugin->get_unique_target_id($jobcfg);
 
-    my $code = sub {
+    my $update = sub {
 
 	my $stateobj = read_state();
 	# Note: tuple ($vmid, $tid) is unique
@@ -74,8 +74,13 @@ sub write_job_state {
 	PVE::Tools::file_set_contents($state_path, encode_json($stateobj));
     };
 
-    PVE::Tools::lock_file($state_lock, 10, $code);
-    die $@ if $@;
+    my $code = sub {
+	PVE::Tools::lock_file($state_lock, 10, $update);
+	die $@ if $@;
+    };
+
+    # make sure we have guest_migration_lock during update
+    PVE::GuestHelpers::guest_migration_lock($vmid, undef, $code);
 }
 
 1;
