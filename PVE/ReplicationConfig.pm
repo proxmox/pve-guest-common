@@ -20,9 +20,28 @@ cfs_register_file($replication_cfg_filename,
 		  sub { __PACKAGE__->parse_config(@_); },
 		  sub { __PACKAGE__->write_config(@_); });
 
+PVE::JSONSchema::register_format('pve-replication-job-id',
+				 \&parse_replication_job_id);
+sub parse_replication_job_id {
+    my ($id, $noerr) = @_;
+
+    my $msg = "invalid replication job id '$id'";
+
+    if ($id =~ m/^(\d+)-(\d+)$/) {
+	my ($guest, $jobnum) = (int($1), int($2));
+	die "$msg (guest IDs < 100 are reseved)\n" if $guest < 100;
+	my $parsed_id = "$guest-$jobnum"; # use parsed integers
+	return wantarray ? ($guest, $jobnum, $parsed_id) :  $parsed_id;
+    }
+
+    return undef if $noerr;
+
+    die "$msg\n";
+}
+
 PVE::JSONSchema::register_standard_option('pve-replication-id', {
     description => "Replication Job ID.",
-    type => 'string',
+    type => 'string', format => 'pve-replication-job-id',
     pattern => '[1-9][0-9]{2,8}-\d{1,9}',
 });
 
@@ -77,10 +96,7 @@ sub parse_section_header {
 	my ($type, $guest, $subid) = (lc($1), int($2), int($3));
 	my $id = "$guest-$subid"; # use parsed integers
 	my $errmsg = undef; # set if you want to skip whole section
-	eval {
-	    die "invalid replication job id '$id'\n" if $subid < 1;
-	    PVE::JSONSchema::pve_verify_vmid($guest);
-	};
+	eval { parse_replication_job_id($id); };
 	$errmsg = $@ if $@;
 	my $config = { guest => $guest };
 	return ($type, $id, $errmsg, $config);
