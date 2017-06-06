@@ -83,4 +83,13 @@ sub write_job_state {
     PVE::GuestHelpers::guest_migration_lock($vmid, undef, $code);
 }
 
+sub replication_snapshot_name {
+    my ($jobid, $last_sync) = @_;
+
+    my $prefix = "__replicate_${jobid}_";
+    my $snapname = "${prefix}${last_sync}__";
+
+    wantarray ? ($prefix, $snapname) : $snapname;
+}
+
 1;
