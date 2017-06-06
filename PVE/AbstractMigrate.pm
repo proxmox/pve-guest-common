@@ -114,13 +114,22 @@ sub migrate {
 
     $class = ref($class) || $class;
 
+    my $dc_conf = PVE::Cluster::cfs_read_file('datacenter.cfg');
+
     my $migration_network = $opts->{migration_network};
     if (!defined($migration_network)) {
-	my $dc_conf = PVE::Cluster::cfs_read_file('datacenter.cfg');
 	$migration_network = $dc_conf->{migration}->{network};
     }
     my $ssh_info = PVE::Cluster::get_ssh_info($node, $migration_network);
     $nodeip = $ssh_info->{ip};
+
+    my $migration_type = 'secure';
+    if (defined($opts->{migration_type})) {
+	$migration_type = $opts->{migration_type};
+    } elsif (defined($dc_conf->{migration}->{type})) {
+        $migration_type = $dc_conf->{migration}->{type};
+    }
+    $opts->{migration_type} = $migration_type;
 
     my $self = {
 	delayed_interrupt => 0,
