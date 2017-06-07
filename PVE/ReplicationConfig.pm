@@ -95,7 +95,7 @@ sub parse_section_header {
 	my $errmsg = undef; # set if you want to skip whole section
 	eval { parse_replication_job_id($id); };
 	$errmsg = $@ if $@;
-	my $config = { guest => $guest };
+	my $config = {};
 	return ($type, $id, $errmsg, $config);
     }
     return undef;
@@ -119,6 +119,11 @@ sub parse_config {
 
     foreach my $id (sort keys %{$cfg->{ids}}) {
 	my $data = $cfg->{ids}->{$id};
+
+	my ($guest, $jobnum) = parse_replication_job_id($id);
+
+	$data->{guest} = $guest;
+	$data->{jobnum} = $jobnum;
 
 	$data->{comment} = PVE::Tools::decode_text($data->{comment})
 	    if defined($data->{comment});
@@ -150,6 +155,7 @@ sub write_config {
 	my $tid = $plugin->get_unique_target_id($data);
 	my $vmid = $data->{guest};
 
+	die "property 'guest' has wrong value\n" if $id !~ m/^\Q$vmid\E-/;
 	die "replication job for guest '$vmid' to target '$tid' already exists\n"
 	    if defined($target_hash->{$vmid}->{$tid});
 	$target_hash->{$vmid}->{$tid} = 1;
