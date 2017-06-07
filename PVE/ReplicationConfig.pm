@@ -40,7 +40,7 @@ sub parse_replication_job_id {
 }
 
 PVE::JSONSchema::register_standard_option('pve-replication-id', {
-    description => "Replication Job ID.",
+    description => "Replication Job ID. The ID is composed of a Guest ID and a job number, separated by a hyphen, i.e. '<GUEST>-<JOBNUM>'.",
     type => 'string', format => 'pve-replication-job-id',
     pattern => '[1-9][0-9]{2,8}-\d{1,9}',
 });
@@ -66,9 +66,6 @@ my $defaultData = {
 	    enum => ['local', 'full'],
 	    optional => 1,
 	},
-	guest => get_standard_option('pve-vmid', {
-	    optional => 1,
-	    completion => \&PVE::Cluster::complete_vmid }),
 	rate => {
 	    description => "Rate limit in mbps (megabytes per second) as floating point number.",
 	    type => 'number',
@@ -225,7 +222,6 @@ sub properties {
 
 sub options {
     return {
-	guest => { fixed => 1, optional => 0 },
 	target => { fixed => 1, optional => 0 },
 	disable => { optional => 1 },
 	comment => { optional => 1 },
