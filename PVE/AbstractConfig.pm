@@ -192,6 +192,15 @@ sub has_feature {
     die "implement me - abstract method\n";
 }
 
+# get all replicatable volume (hash $res->{$volid} = 1)
+# $cleanup: for cleanup - simply ignores volumes without replicate feature
+# $norerr: never raise exceptions - return undef instead
+sub get_replicatable_volumes {
+    my ($class, $storecfg, $conf, $cleanup, $noerr) = @_;
+
+    die "implement me - abstract method\n";
+}
+
 # Internal snapshots
 
 # NOTE: Snapshot create/delete involves several non-atomic
