@@ -209,6 +209,18 @@ sub check_for_existing_jobs {
     return undef;
 }
 
+sub delete_job {
+    my ($jobid) = @_;
+
+    my $code = sub {
+	my $cfg = __PACKAGE__->new();
+	delete $cfg->{ids}->{$jobid};
+	$cfg->write();
+    };
+
+    lock($code);
+}
+
 package PVE::ReplicationConfig::Cluster;
 
 use base qw(PVE::ReplicationConfig);
