@@ -79,15 +79,21 @@ sub prepare {
 
     $last_sync //= 0;
 
-    my ($prefix, $snapname) =
-	PVE::ReplicationState::replication_snapshot_name($jobid, $last_sync);
+    my ($prefix, $snapname);
+
+    if (defined($jobid)) {
+	($prefix, $snapname) = PVE::ReplicationState::replication_snapshot_name($jobid, $last_sync);
+    } else {
+	$prefix = '__replicate_';
+    }
 
     my $last_snapshots = {};
     my $cleaned_replicated_volumes = {};
     foreach my $volid (@$volids) {
 	my $list = PVE::Storage::volume_snapshot_list($storecfg, $volid);
 	foreach my $snap (@$list) {
-	    if ($snap eq $snapname || (defined($parent_snapname) && ($snap eq $parent_snapname))) {
+	    if ((defined($snapname) && ($snap eq $snapname)) ||
+		(defined($parent_snapname) && ($snap eq $parent_snapname))) {
 		$last_snapshots->{$volid}->{$snap} = 1;
 	    } elsif ($snap =~ m/^\Q$prefix\E/) {
 		$logfunc->("delete stale replication snapshot '$snap' on $volid");
