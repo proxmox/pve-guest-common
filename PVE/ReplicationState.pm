@@ -68,6 +68,7 @@ sub read_job_state {
     return extract_job_state($stateobj, $jobcfg);
 }
 
+# update state for a single job
 sub write_job_state {
     my ($jobcfg, $state) = @_;
 
@@ -82,6 +83,25 @@ sub write_job_state {
 	# Note: tuple ($vmid, $tid) is unique
 	$stateobj->{$vmid}->{$tid} = $state;
 
+	PVE::Tools::file_set_contents($state_path, encode_json($stateobj));
+    };
+
+    my $code = sub {
+	PVE::Tools::lock_file($state_lock, 10, $update);
+	die $@ if $@;
+    };
+
+    # make sure we have guest_migration_lock during update
+    PVE::GuestHelpers::guest_migration_lock($vmid, undef, $code);
+}
+
+# update all job states related to a specific $vmid
+sub write_vmid_job_states {
+    my ($vmid_state, $vmid) = @_;
+
+    my $update = sub {
+	my $stateobj = read_state();
+	$stateobj->{$vmid} = $vmid_state;
 	PVE::Tools::file_set_contents($state_path, encode_json($stateobj));
     };
 
