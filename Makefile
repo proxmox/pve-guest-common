@@ -26,6 +26,7 @@ install: PVE
 	install -m 0644 PVE/AbstractMigrate.pm ${PERL5DIR}/PVE/
 	install -m 0644 PVE/ReplicationConfig.pm ${PERL5DIR}/PVE/
 	install -m 0644 PVE/ReplicationState.pm ${PERL5DIR}/PVE/
+	install -m 0644 PVE/Replication.pm ${PERL5DIR}/PVE/
 	install -d ${PERL5DIR}/PVE/VZDump
 	install -m 0644 PVE/VZDump/Plugin.pm ${PERL5DIR}/PVE/VZDump/
 
