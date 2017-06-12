@@ -592,6 +592,17 @@ sub snapshot_rollback {
 	return $res;
     };
 
+    my $repl_conf = PVE::ReplicationConfig->new();
+    if ($repl_conf->check_for_existing_jobs($vmid, 1)) {
+	# remove all replication snapshots
+	my $volumes = $class->get_replicatable_volumes($storecfg, $conf, 1);
+	my $sorted_volids = [ sort keys %$volumes ];
+
+	# remove all local replication snapshots (jobid => undef)
+	my $logfunc = sub { my $line = shift; chomp $line; print "$line\n"; };
+	PVE::Replication::prepare($storecfg, $sorted_volids, undef, 0, undef, $logfunc);
+    }
+    
     my $snap = &$get_snapshot_config();
 
     $class->__snapshot_foreach_volume($snap, sub {
