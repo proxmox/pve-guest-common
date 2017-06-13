@@ -8,6 +8,9 @@ use PVE::INotify;
 use PVE::Cluster;
 use PVE::Storage;
 
+use PVE::ReplicationConfig;
+use PVE::Replication;
+
 my $nodename = PVE::INotify::nodename();
 
 # Printable string, currently either "VM" or "CT"
