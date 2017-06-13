@@ -145,7 +145,7 @@ sub replicate {
 
     my $conf = $guest_class->load_config($vmid);
     my ($running, $freezefs) = $guest_class->__snapshot_check_freeze_needed($vmid, $conf, 0);
-    my $volumes = $guest_class->get_replicatable_volumes($storecfg, $conf, defined($jobcfg->{remove_job}));
+    my $volumes = $guest_class->get_replicatable_volumes($storecfg, $vmid, $conf, defined($jobcfg->{remove_job}));
 
     my $sorted_volids = [ sort keys %$volumes ];
 
