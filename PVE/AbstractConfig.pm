@@ -199,7 +199,7 @@ sub has_feature {
 # $cleanup: for cleanup - simply ignores volumes without replicate feature
 # $norerr: never raise exceptions - return undef instead
 sub get_replicatable_volumes {
-    my ($class, $storecfg, $conf, $cleanup, $noerr) = @_;
+    my ($class, $storecfg, $vmid, $conf, $cleanup, $noerr) = @_;
 
     die "implement me - abstract method\n";
 }
