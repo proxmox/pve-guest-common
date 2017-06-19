@@ -209,6 +209,19 @@ sub check_for_existing_jobs {
     return undef;
 }
 
+sub find_local_replication_job {
+    my ($cfg, $vmid, $target) = @_;
+
+    foreach my $id (keys %{$cfg->{ids}}) {
+	my $data = $cfg->{ids}->{$id};
+
+	return $data if $data->{type} eq 'local' &&
+	    $data->{guest} == $vmid && $data->{target} eq $target;
+    }
+
+    return undef;
+}
+
 sub delete_job {
     my ($jobid) = @_;
 
