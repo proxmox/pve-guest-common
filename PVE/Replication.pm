@@ -5,6 +5,7 @@ use strict;
 use Data::Dumper;
 use JSON;
 use Time::HiRes qw(gettimeofday tv_interval);
+use POSIX qw(strftime);
 
 use PVE::INotify;
 use PVE::ProcFSTools;
@@ -19,7 +20,7 @@ use PVE::ReplicationState;
 # regression tests should overwrite this
 sub get_log_time {
 
-    return time();
+    return strftime("%F %H:%M:%S", localtime);
 }
 
 # Find common base replication snapshot, available on local and remote side.
