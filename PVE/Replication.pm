@@ -208,7 +208,7 @@ sub replicate {
 	PVE::ReplicationConfig::delete_job($jobid); # update config
 	$logfunc->("job removed");
 
-	return;
+	return undef;
     }
 
     my $ssh_info = PVE::Cluster::get_ssh_info($jobcfg->{target}, $migration_network);
@@ -296,12 +296,16 @@ sub replicate {
     remote_finalize_local_job($ssh_info, $jobid, $vmid, $sorted_volids, $start_time, $logfunc);
 
     die $err if $err;
+
+    return $volumes;
 }
 
 my $run_replication_nolock = sub {
     my ($guest_class, $jobcfg, $iteration, $start_time, $logfunc) = @_;
 
     my $jobid = $jobcfg->{id};
+
+    my $volumes;
 
     # we normaly write errors into the state file,
     # but we also catch unexpected errors and log them to syslog
@@ -329,7 +333,7 @@ my $run_replication_nolock = sub {
 	$logfunc_wrapper->("start replication job");
 
 	eval {
-	    replicate($guest_class, $jobcfg, $state, $start_time, $logfunc_wrapper);
+	    $volumes = replicate($guest_class, $jobcfg, $state, $start_time, $logfunc_wrapper);
 	};
 	my $err = $@;
 
@@ -347,14 +351,18 @@ my $run_replication_nolock = sub {
     if (my $err = $@) {
 	warn "$jobid: got unexpected replication job error - $err";
     }
+
+    return $volumes;
 };
 
 sub run_replication {
     my ($guest_class, $jobcfg, $iteration, $start_time, $logfunc, $noerr) = @_;
 
+    my $volumes;
+
     eval {
 	my $timeout = 2; # do not wait too long - we repeat periodically anyways
-	PVE::GuestHelpers::guest_migration_lock(
+	$volumes = PVE::GuestHelpers::guest_migration_lock(
 	    $jobcfg->{guest}, $timeout, $run_replication_nolock,
 	    $guest_class, $jobcfg, $iteration, $start_time, $logfunc);
     };
@@ -362,6 +370,7 @@ sub run_replication {
 	return undef if $noerr;
 	die $err;
     }
+    return $volumes;
 }
 
 1;
