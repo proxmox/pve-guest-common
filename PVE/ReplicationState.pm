@@ -5,6 +5,7 @@ use strict;
 use JSON;
 
 use PVE::INotify;
+use PVE::ProcFSTools;
 use PVE::Tools;
 use PVE::CalendarEvent;
 use PVE::Cluster;
@@ -112,6 +113,38 @@ sub write_vmid_job_states {
 
     # make sure we have guest_migration_lock during update
     PVE::GuestHelpers::guest_migration_lock($vmid, undef, $code);
+}
+
+sub record_job_start {
+    my ($jobcfg, $state, $start_time, $iteration) = @_;
+
+    $state->{pid} = $$;
+    $state->{ptime} = PVE::ProcFSTools::read_proc_starttime($state->{pid});
+    $state->{last_node} = PVE::INotify::nodename();
+    $state->{last_try} = $start_time;
+    $state->{last_iteration} = $iteration;
+    $state->{storeid_list} //= [];
+
+    write_job_state($jobcfg, $state);
+}
+
+sub record_job_end {
+    my ($jobcfg, $state, $start_time, $duration, $err) = @_;
+
+    $state->{duration} = $duration;
+    delete $state->{pid};
+    delete $state->{ptime};
+
+    if ($err) {
+	chomp $err;
+	$state->{fail_count}++;
+	$state->{error} = "$err";
+    } else {
+	$state->{last_sync} = $start_time;
+	$state->{fail_count} = 0;
+	delete $state->{error};
+    }
+    write_job_state($jobcfg,  $state);
 }
 
 sub replication_snapshot_name {

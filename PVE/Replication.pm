@@ -309,16 +309,9 @@ my $run_replication_nolock = sub {
     eval {
 	my $state = PVE::ReplicationState::read_job_state($jobcfg);
 
+	PVE::ReplicationState::record_job_start($jobcfg, $state, $start_time, $iteration);
+
 	my $t0 = [gettimeofday];
-
-	$state->{pid} = $$;
-	$state->{ptime} = PVE::ProcFSTools::read_proc_starttime($state->{pid});
-	$state->{last_node} = PVE::INotify::nodename();
-	$state->{last_try} = $start_time;
-	$state->{last_iteration} = $iteration;
-	$state->{storeid_list} //= [];
-
-	PVE::ReplicationState::write_job_state($jobcfg, $state);
 
 	mkdir $PVE::ReplicationState::replicate_logdir;
 	my $logfile = PVE::ReplicationState::job_logfile_name($jobid);
@@ -340,23 +333,14 @@ my $run_replication_nolock = sub {
 	};
 	my $err = $@;
 
-	$state->{duration} = tv_interval($t0);
-	delete $state->{pid};
-	delete $state->{ptime};
-
 	if ($err) {
 	    chomp $err;
-	    $state->{fail_count}++;
-	    $state->{error} = "$err";
-	    PVE::ReplicationState::write_job_state($jobcfg,  $state);
 	    $logfunc_wrapper->("end replication job with error: $err");
 	} else {
 	    $logfunc_wrapper->("end replication job");
-	    $state->{last_sync} = $start_time;
-	    $state->{fail_count} = 0;
-	    delete $state->{error};
-	    PVE::ReplicationState::write_job_state($jobcfg,  $state);
 	}
+
+	PVE::ReplicationState::record_job_end($jobcfg, $state, $start_time, tv_interval($t0), $err);
 
 	close($logfd);
     };
