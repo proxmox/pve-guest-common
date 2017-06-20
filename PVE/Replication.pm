@@ -22,6 +22,44 @@ sub get_log_time {
     return time();
 }
 
+# Find common base replication snapshot, available on local and remote side.
+# Note: this also removes stale replication snapshots
+sub find_common_replication_snapshot {
+    my ($ssh_info, $jobid, $vmid, $storecfg, $volumes, $storeid_list, $last_sync, $parent_snapname, $logfunc) = @_;
+
+    my $last_sync_snapname =
+	PVE::ReplicationState::replication_snapshot_name($jobid, $last_sync);
+
+    # test if we have a replication_ snapshot from last sync
+    # and remove all other/stale replication snapshots
+
+    my $last_snapshots = prepare(
+	$storecfg, $volumes, $jobid, $last_sync, $parent_snapname, $logfunc);
+
+    # prepare remote side
+    my $remote_snapshots = remote_prepare_local_job(
+	$ssh_info, $jobid, $vmid, $volumes, $storeid_list, $last_sync, $parent_snapname, 0, $logfunc);
+
+    my $base_snapshots = {};
+
+    foreach my $volid (@$volumes) {
+	my $base_snapname;
+
+	if (defined($last_snapshots->{$volid}) && defined($remote_snapshots->{$volid})) {
+	    if ($last_snapshots->{$volid}->{$last_sync_snapname} &&
+		$remote_snapshots->{$volid}->{$last_sync_snapname}) {
+		$base_snapshots->{$volid} = $last_sync_snapname;
+	    } elsif (defined($parent_snapname) &&
+		     ($last_snapshots->{$volid}->{$parent_snapname} &&
+		      $remote_snapshots->{$volid}->{$parent_snapname})) {
+		$base_snapshots->{$volid} = $parent_snapname;
+	    }
+	}
+    }
+
+    return ($base_snapshots, $last_snapshots, $last_sync_snapname);
+}
+
 sub remote_prepare_local_job {
     my ($ssh_info, $jobid, $vmid, $volumes, $storeid_list, $last_sync, $parent_snapname, $force, $logfunc) = @_;
 
@@ -175,22 +213,10 @@ sub replicate {
 
     my $ssh_info = PVE::Cluster::get_ssh_info($jobcfg->{target}, $migration_network);
 
-    my $last_sync_snapname =
-	PVE::ReplicationState::replication_snapshot_name($jobid, $last_sync);
-    my $sync_snapname =
-	PVE::ReplicationState::replication_snapshot_name($jobid, $start_time);
-
     my $parent_snapname = $conf->{parent};
 
-    # test if we have a replication_ snapshot from last sync
-    # and remove all other/stale replication snapshots
-
-    my $last_snapshots = prepare(
-	$storecfg, $sorted_volids, $jobid, $last_sync, $parent_snapname, $logfunc);
-
-    # prepare remote side
-    my $remote_snapshots = remote_prepare_local_job(
-	$ssh_info, $jobid, $vmid, $sorted_volids, $state->{storeid_list}, $last_sync, $parent_snapname, 0, $logfunc);
+    my ($base_snapshots, $last_snapshots, $last_sync_snapname) = find_common_replication_snapshot(
+	$ssh_info, $jobid, $vmid, $storecfg, $sorted_volids, $state->{storeid_list}, $last_sync, $parent_snapname, $logfunc);
 
     my $storeid_hash = {};
     foreach my $volid (@$sorted_volids) {
@@ -206,6 +232,9 @@ sub replicate {
     }
 
     # make snapshot of all volumes
+    my $sync_snapname =
+	PVE::ReplicationState::replication_snapshot_name($jobid, $start_time);
+
     my $replicate_snapshots = {};
     eval {
 	foreach my $volid (@$sorted_volids) {
@@ -243,20 +272,12 @@ sub replicate {
 	foreach my $volid (@$sorted_volids) {
 	    my $base_snapname;
 
-	    if (defined($last_snapshots->{$volid}) && defined($remote_snapshots->{$volid})) {
-		if ($last_snapshots->{$volid}->{$last_sync_snapname} &&
-		    $remote_snapshots->{$volid}->{$last_sync_snapname}) {
-		    $logfunc->("incremental sync '$volid' ($last_sync_snapname => $sync_snapname)");
-		    $base_snapname = $last_sync_snapname;
-		} elsif (defined($parent_snapname) &&
-			 ($last_snapshots->{$volid}->{$parent_snapname} &&
-			  $remote_snapshots->{$volid}->{$parent_snapname})) {
-		    $logfunc->("incremental sync '$volid' ($parent_snapname => $sync_snapname)");
-		    $base_snapname = $parent_snapname;
-		}
+	    if (defined($base_snapname = $base_snapshots->{$volid})) {
+		$logfunc->("incremental sync '$volid' ($base_snapname => $sync_snapname)");
+	    } else {
+		$logfunc->("full sync '$volid' ($sync_snapname)");
 	    }
 
-	    $logfunc->("full sync '$volid' ($sync_snapname)") if !defined($base_snapname);
 	    replicate_volume($ssh_info, $storecfg, $volid, $base_snapname, $sync_snapname, $rate, $insecure);
 	}
     };
