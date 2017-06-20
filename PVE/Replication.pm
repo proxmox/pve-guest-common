@@ -301,7 +301,7 @@ sub replicate {
 }
 
 my $run_replication_nolock = sub {
-    my ($guest_class, $jobcfg, $iteration, $start_time, $logfunc) = @_;
+    my ($guest_class, $jobcfg, $iteration, $start_time, $logfunc, $verbose) = @_;
 
     my $jobid = $jobcfg->{id};
 
@@ -327,7 +327,13 @@ my $run_replication_nolock = sub {
 
 	    my $ctime = get_log_time();
 	    print $logfd "$ctime $jobid: $msg\n";
-	    $logfunc->("$ctime $jobid: $msg") if $logfunc;
+	    if ($logfunc) {
+		if ($verbose) {
+		    $logfunc->("$ctime $jobid: $msg");
+		} else {
+		    $logfunc->($msg);
+		}
+	    }
 	};
 
 	$logfunc_wrapper->("start replication job");
@@ -356,7 +362,7 @@ my $run_replication_nolock = sub {
 };
 
 sub run_replication {
-    my ($guest_class, $jobcfg, $iteration, $start_time, $logfunc, $noerr) = @_;
+    my ($guest_class, $jobcfg, $iteration, $start_time, $logfunc, $noerr, $verbose) = @_;
 
     my $volumes;
 
@@ -364,7 +370,7 @@ sub run_replication {
 	my $timeout = 2; # do not wait too long - we repeat periodically anyways
 	$volumes = PVE::GuestHelpers::guest_migration_lock(
 	    $jobcfg->{guest}, $timeout, $run_replication_nolock,
-	    $guest_class, $jobcfg, $iteration, $start_time, $logfunc);
+	    $guest_class, $jobcfg, $iteration, $start_time, $logfunc, $verbose);
     };
     if (my $err = $@) {
 	return undef if $noerr;
