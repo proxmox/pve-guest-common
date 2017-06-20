@@ -124,6 +124,7 @@ sub parse_config {
 
 	$data->{guest} = $guest;
 	$data->{jobnum} = $jobnum;
+	$data->{id} = $id;
 
 	$data->{comment} = PVE::Tools::decode_text($data->{comment})
 	    if defined($data->{comment});
