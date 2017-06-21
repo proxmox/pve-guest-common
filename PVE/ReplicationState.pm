@@ -62,6 +62,20 @@ sub extract_job_state {
     return $state;
 }
 
+sub extract_vmid_tranfer_state {
+    my ($stateobj, $vmid, $old_target, $new_target) = @_;
+
+    my $oldid = PVE::ReplicationConfig::Cluster->get_unique_target_id({ target => $old_target });
+    my $newid = PVE::ReplicationConfig::Cluster->get_unique_target_id({ target => $new_target });
+
+    if (defined(my $vmstate = $stateobj->{$vmid})) {
+	$vmstate->{$newid} = delete($vmstate->{$oldid}) if defined($vmstate->{$oldid});
+	return $vmstate;
+    }
+
+    return {};
+}
+
 sub read_job_state {
     my ($jobcfg) = @_;
 
