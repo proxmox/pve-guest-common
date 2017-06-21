@@ -223,6 +223,24 @@ sub find_local_replication_job {
     return undef;
 }
 
+# switch local replication job target
+sub switch_replication_job_target {
+    my ($vmid, $old_target, $new_target) = @_;
+
+    my $transfer_job = sub {
+	my $cfg = PVE::ReplicationConfig->new();
+	my $jobcfg = find_local_replication_job($cfg, $vmid, $old_target);
+
+	return if !$jobcfg;
+
+	$jobcfg->{target} = $new_target;
+
+	$cfg->write();
+    };
+
+    lock($transfer_job);
+};
+
 sub delete_job {
     my ($jobid) = @_;
 
