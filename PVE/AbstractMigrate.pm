@@ -3,8 +3,10 @@ package PVE::AbstractMigrate;
 use strict;
 use warnings;
 use POSIX qw(strftime);
+use JSON;
 use PVE::Tools;
 use PVE::Cluster;
+use PVE::ReplicationState;
 
 my $msg2text = sub {
     my ($level, $msg) = @_;
@@ -294,6 +296,42 @@ sub phase3_cleanup {
 sub final_cleanup {
     my ($self, $vmid) = @_;
     die "abstract method - implement me";
+}
+
+# transfer replication state helper - call this before moving the guest config
+# - just log the error is something fails
+sub transfer_replication_state {
+    my ($self) = @_;
+
+    my $local_node = PVE::INotify::nodename();
+
+    eval {
+	my $stateobj = PVE::ReplicationState::read_state();
+	my $vmstate = PVE::ReplicationState::extract_vmid_tranfer_state($stateobj, $self->{vmid}, $self->{node}, $local_node);
+	# This have to be quoted when it run it over ssh.
+	my $state = PVE::Tools::shellquote(encode_json($vmstate));
+	my $cmd = [ @{$self->{rem_ssh}}, 'pvesr', 'set-state', $self->{vmid}, $state];
+	$self->cmd($cmd);
+    };
+    if (my $err = $@) {
+	$self->log('err', "transfer replication state failed - $err");
+	$self->{errors} = 1;
+    }
+}
+
+# switch replication job target - call this after moving the guest config
+# - does nothing if there is no relevant replication job
+# - just log the error is something fails
+sub switch_replication_job_target {
+    my ($self) = @_;
+
+    my $local_node = PVE::INotify::nodename();
+
+    eval { PVE::ReplicationConfig::switch_replication_job_target($self->{vmid}, $self->{node}, $local_node); };
+    if (my $err = $@) {
+	$self->log('err', "switch replication job target failed - $err");
+	$self->{errors} = 1;
+    }
 }
 
 1;
