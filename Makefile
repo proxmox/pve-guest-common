@@ -1,6 +1,6 @@
 PACKAGE=libpve-guest-common-perl
 PKGVER=2.0
-PKGREL=5
+PKGREL=6
 
 DEB=${PACKAGE}_${PKGVER}-${PKGREL}_all.deb
 
