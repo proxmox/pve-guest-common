@@ -1,3 +1,52 @@
+libpve-guest-common-perl (2.0-5) unstable; urgency=medium
+
+  * PVE::AbstractMigrate - new helpers to handle replication jobs
+
+  * PVE::ReplicationState::extract_vmid_tranfer_state - new helper
+
+  * PVE::ReplicationConfig::switch_replication_job_target - new helper
+
+  * PVE/ReplicationConfig.pm: store job id inside job config
+
+  * PVE::Replication::run_replication - add verbose parameter
+
+  * PVE::Replication::run_replication - return replicated $volumes
+
+  * PVE::ReplicationState - new helpers record_job_start/record_job_end
+
+  * PVE::Replication::find_common_replication_snapshot - new helper
+
+  * PVE::ReplicationConfig::find_local_replication_job - new helper
+
+  * replicate_volume: implement rate limit and insecure
+
+  * PVE/ReplicationState.pm: implement write_vmid_job_states
+
+  * Make rollback compatible with storage replication
+
+  * PVE::Replication - pass $cleanup parameter to get_replicatable_volumes
+
+  * PVE::AbstractConfig - add prototype for get_replicatable_volumes
+
+  * PVE::Replication::prepare - allow to pass undefined $jobid
+
+  * add PVE/Replication.pm - moved from pve-manager
+
+  * PVE::ReplicationConfig add delete_job helper
+
+  * PVE::ReplicationState - add job_status, get_next_job,
+    job_logfile_name helpers
+
+  * PVE::ReplicationConfig - new helper parse_replication_job_id
+
+  * PVE::ReplicationConfig - use new ID format "<vmid>-<num>"
+
+  * PVE::ReplicationState - hold guest_migration_lock during state update
+
+  * PVE::ReplicationState - new helper class to read/write replication state
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 22 Jun 2017 08:43:55 +0200
+
 libpve-guest-common-perl (2.0-4) unstable; urgency=medium
 
   * PVE::GuestHelpers::guest_migration_lock - new helper
