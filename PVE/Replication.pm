@@ -246,8 +246,9 @@ sub replicate {
     };
     my $err = $@;
 
-    # unfreeze immediately
+    # thaw immediately
     if ($freezefs) {
+	$logfunc->("thaw guest filesystem");
 	$guest_class->__snapshot_freeze($vmid, 1);
     }
 
