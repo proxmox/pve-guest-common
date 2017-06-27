@@ -158,12 +158,17 @@ sub record_job_end {
 	chomp $err;
 	$state->{fail_count}++;
 	$state->{error} = "$err";
+	write_job_state($jobcfg,  $state);
     } else {
-	$state->{last_sync} = $start_time;
-	$state->{fail_count} = 0;
-	delete $state->{error};
+	if ($jobcfg->{remove_job}) {
+	    write_job_state($jobcfg, undef);
+	} else {
+	    $state->{last_sync} = $start_time;
+	    $state->{fail_count} = 0;
+	    delete $state->{error};
+	    write_job_state($jobcfg,  $state);
+	}
     }
-    write_job_state($jobcfg,  $state);
 }
 
 sub replication_snapshot_name {
