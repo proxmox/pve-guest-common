@@ -175,6 +175,40 @@ sub replication_snapshot_name {
     wantarray ? ($prefix, $snapname) : $snapname;
 }
 
+sub purge_old_states {
+
+    my $local_node = PVE::INotify::nodename();
+
+    my $cfg = PVE::ReplicationConfig->new();
+    my $vms = PVE::Cluster::get_vmlist();
+
+    my $used_tids = {};
+
+    foreach my $jobid (sort keys %{$cfg->{ids}}) {
+	my $jobcfg = $cfg->{ids}->{$jobid};
+	my $plugin = PVE::ReplicationConfig->lookup($jobcfg->{type});
+	my $tid = $plugin->get_unique_target_id($jobcfg);
+	my $vmid = $jobcfg->{guest};
+	$used_tids->{$vmid}->{$tid} = 1
+	    if defined($vms->{ids}->{$vmid}); # && $vms->{ids}->{$vmid}->{node} eq $local_node;
+    }
+
+    my $purge_state = sub {
+	my $stateobj = read_state();
+	my $next_stateobj = {};
+
+	foreach my $vmid (keys %$stateobj) {
+	    foreach my $tid (keys %{$stateobj->{$vmid}}) {
+		$next_stateobj->{$vmid}->{$tid} = $stateobj->{$vmid}->{$tid} if $used_tids->{$vmid}->{$tid};
+	    }
+	}
+	PVE::Tools::file_set_contents($state_path, encode_json($next_stateobj));
+    };
+
+    PVE::Tools::lock_file($state_lock, 10, $purge_state);
+    die $@ if $@;
+}
+
 sub job_status {
 
     my $local_node = PVE::INotify::nodename();
