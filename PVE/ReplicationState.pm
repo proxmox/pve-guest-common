@@ -257,9 +257,7 @@ sub job_status {
 	    # todo: consider fail_count? How many retries?
 	} else  {
 	    if (my $fail_count = $state->{fail_count}) {
-		if ($fail_count < 3) {
-		    $next_sync = $state->{last_try} + 5*60*$fail_count;
-		}
+		$next_sync = $state->{last_try} + 60*($fail_count < 3 ? 5*$fail_count : 30);
 	    } else {
 		my $schedule =  $jobcfg->{schedule} || '*/15';
 		my $calspec = PVE::CalendarEvent::parse_calendar_event($schedule);
