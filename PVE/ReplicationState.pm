@@ -84,6 +84,7 @@ sub read_job_state {
 }
 
 # update state for a single job
+# pass $state = undef to delete the job state completely
 sub write_job_state {
     my ($jobcfg, $state) = @_;
 
@@ -96,8 +97,12 @@ sub write_job_state {
 
 	my $stateobj = read_state();
 	# Note: tuple ($vmid, $tid) is unique
-	$stateobj->{$vmid}->{$tid} = $state;
-
+	if (defined($state)) {
+	    $stateobj->{$vmid}->{$tid} = $state;
+	} else {
+	    delete $stateobj->{$vmid}->{$tid};
+	    delete $stateobj->{$vmid} if !%{$stateobj->{$vmid}};
+	}
 	PVE::Tools::file_set_contents($state_path, encode_json($stateobj));
     };
 
