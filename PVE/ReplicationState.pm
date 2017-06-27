@@ -238,9 +238,10 @@ sub job_status {
 	# only consider guest on local node
 	next if $vms->{ids}->{$vmid}->{node} ne $local_node;
 
+	my $target = $jobcfg->{target};
 	if (!$jobcfg->{remove_job}) {
 	    # never sync to local node
-	    next if $jobcfg->{target} eq $local_node;
+	    next if $target eq $local_node;
 
 	    next if $jobcfg->{disable};
 	}
@@ -257,7 +258,10 @@ sub job_status {
 	    # todo: consider fail_count? How many retries?
 	} else  {
 	    if (my $fail_count = $state->{fail_count}) {
-		$next_sync = $state->{last_try} + 60*($fail_count < 3 ? 5*$fail_count : 30);
+		my $members = PVE::Cluster::get_members();
+		if (!$fail_count || ($members->{$target} && $members->{$target}->{online})) {
+		    $next_sync = $state->{last_try} + 60*($fail_count < 3 ? 5*$fail_count : 30);
+		}
 	    } else {
 		my $schedule =  $jobcfg->{schedule} || '*/15';
 		my $calspec = PVE::CalendarEvent::parse_calendar_event($schedule);
