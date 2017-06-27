@@ -147,6 +147,18 @@ sub record_job_start {
     write_job_state($jobcfg, $state);
 }
 
+sub delete_guest_states {
+    my ($vmid) = @_;
+
+    my $code = sub {
+	my $stateobj = read_state();
+	delete $stateobj->{$vmid};
+	PVE::Tools::file_set_contents($state_path, encode_json($stateobj));
+    };
+
+    PVE::Tools::lock_file($state_lock, 10, $code);
+}
+
 sub record_job_end {
     my ($jobcfg, $state, $start_time, $duration, $err) = @_;
 
