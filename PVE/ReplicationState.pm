@@ -299,7 +299,7 @@ sub get_next_job {
 	my $jobb = $jobs->{$b};
 	my $sa =  $joba->{state};
 	my $sb =  $jobb->{state};
-	my $res = $sa->{last_iteration} cmp $sb->{last_iteration};
+	my $res = $sa->{last_iteration} <=> $sb->{last_iteration};
 	return $res if $res != 0;
 	$res = $joba->{next_sync} <=> $jobb->{next_sync};
 	return $res if $res != 0;
