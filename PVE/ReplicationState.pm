@@ -317,4 +317,16 @@ sub get_next_job {
     return undef;
 }
 
+sub schedule_job_now {
+    my ($jobcfg) = @_;
+    PVE::GuestHelpers::guest_migration_lock($jobcfg->{guest}, undef, sub {
+	PVE::Tools::lock_file($state_lock, 10, sub {
+	    my $state = read_job_state($jobcfg);
+	    $state->{last_try} = 0;
+	    write_job_state($jobcfg, $state);
+	});
+	die $@ if $@;
+    });
+}
+
 1;
