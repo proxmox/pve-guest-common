@@ -319,10 +319,12 @@ sub get_next_job {
 
 sub schedule_job_now {
     my ($jobcfg) = @_;
+
     PVE::GuestHelpers::guest_migration_lock($jobcfg->{guest}, undef, sub {
 	PVE::Tools::lock_file($state_lock, 10, sub {
 	    my $stateobj = read_state();
 	    my $vmid = $jobcfg->{guest};
+	    my $plugin = PVE::ReplicationConfig->lookup($jobcfg->{type});
 	    my $tid = $plugin->get_unique_target_id($jobcfg);
 	    # no not modify anything if there is no state
 	    return if !defined($stateobj->{$vmid}->{$tid});
