@@ -321,6 +321,12 @@ sub schedule_job_now {
     my ($jobcfg) = @_;
     PVE::GuestHelpers::guest_migration_lock($jobcfg->{guest}, undef, sub {
 	PVE::Tools::lock_file($state_lock, 10, sub {
+	    my $stateobj = read_state();
+	    my $vmid = $jobcfg->{guest};
+	    my $tid = $plugin->get_unique_target_id($jobcfg);
+	    # no not modify anything if there is no state
+	    return if !defined($stateobj->{$vmid}->{$tid});
+
 	    my $state = read_job_state($jobcfg);
 	    $state->{last_try} = 0;
 	    write_job_state($jobcfg, $state);
