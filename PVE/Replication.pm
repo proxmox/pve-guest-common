@@ -303,7 +303,7 @@ sub replicate {
 }
 
 my $run_replication_nolock = sub {
-    my ($guest_class, $jobcfg, $iteration, $start_time, $logfunc, $verbose) = @_;
+    my ($guest_class, $jobcfg, $iteration, $start_time, $logfunc, $noerr, $verbose) = @_;
 
     my $jobid = $jobcfg->{id};
 
@@ -346,8 +346,9 @@ my $run_replication_nolock = sub {
 	my $err = $@;
 
 	if ($err) {
-	    chomp $err;
-	    $logfunc_wrapper->("end replication job with error: $err");
+	    my $msg = "end replication job with error: $err";
+	    chomp $msg;
+	    $logfunc_wrapper->($msg);
 	} else {
 	    $logfunc_wrapper->("end replication job");
 	}
@@ -355,9 +356,15 @@ my $run_replication_nolock = sub {
 	PVE::ReplicationState::record_job_end($jobcfg, $state, $start_time, tv_interval($t0), $err);
 
 	close($logfd);
+
+	die $err if $err && !$noerr;
     };
     if (my $err = $@) {
-	warn "$jobid: got unexpected replication job error - $err";
+	if ($noerr) {
+	    warn "$jobid: got unexpected replication job error - $err";
+	} else {
+	    die $err;
+	}
     }
 
     return $volumes;
@@ -372,7 +379,7 @@ sub run_replication {
 	my $timeout = 2; # do not wait too long - we repeat periodically anyways
 	$volumes = PVE::GuestHelpers::guest_migration_lock(
 	    $jobcfg->{guest}, $timeout, $run_replication_nolock,
-	    $guest_class, $jobcfg, $iteration, $start_time, $logfunc, $verbose);
+	    $guest_class, $jobcfg, $iteration, $start_time, $logfunc, $noerr, $verbose);
     };
     if (my $err = $@) {
 	return undef if $noerr;
