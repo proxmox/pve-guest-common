@@ -1,3 +1,23 @@
+libpve-guest-common-perl (2.0-7) unstable; urgency=medium
+
+  * replication: add schedule_job_now helper
+
+  * replication: sort time stamps numerically
+
+  * replication: pass $noerr to run_replication_nolock
+
+  * Add new function delete_guest_states
+
+  * replication: don't sync to offline targets on error states
+
+  * replication: keep retrying every 30 minutes in error state
+
+  * PVE::ReplicationState - cleanup job state on job removal
+
+  * PVE/Replication.pm: also log when we thaw the filesystem
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 28 Jun 2017 12:46:45 +0200
+
 libpve-guest-common-perl (2.0-6) unstable; urgency=medium
 
   * change replication log timestamp to a human readable format
