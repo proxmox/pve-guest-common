@@ -213,8 +213,12 @@ sub check_for_existing_jobs {
 sub find_local_replication_job {
     my ($cfg, $vmid, $target) = @_;
 
+    my $vms = PVE::Cluster::get_vmlist();
+
     foreach my $id (keys %{$cfg->{ids}}) {
 	my $data = $cfg->{ids}->{$id};
+
+	$data->{vmtype} = $vms->{ids}->{$vmid}->{type};
 
 	return $data if $data->{type} eq 'local' &&
 	    $data->{guest} == $vmid && $data->{target} eq $target;
