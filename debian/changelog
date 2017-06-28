@@ -1,3 +1,9 @@
+libpve-guest-common-perl (2.0-8) unstable; urgency=medium
+
+  * replication: add guest type when fetching a local job config
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 28 Jun 2017 14:32:05 +0200
+
 libpve-guest-common-perl (2.0-7) unstable; urgency=medium
 
   * replication: add schedule_job_now helper
