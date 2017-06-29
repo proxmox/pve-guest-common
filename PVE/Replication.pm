@@ -180,7 +180,6 @@ sub replicate {
 	if $start_time <= $last_sync;
 
     my $vmid = $jobcfg->{guest};
-    my $vmtype = $jobcfg->{vmtype};
 
     my $conf = $guest_class->load_config($vmid);
     my ($running, $freezefs) = $guest_class->__snapshot_check_freeze_needed($vmid, $conf, 0);
@@ -190,7 +189,9 @@ sub replicate {
 
     $running //= 0;  # to avoid undef warnings from logfunc
 
-    $logfunc->("guest => $vmid, type => $vmtype, running => $running");
+    my $guest_name = $guest_class->guest_type() . ' ' . $vmid;
+
+    $logfunc->("guest => $guest_name, running => $running");
     $logfunc->("volumes => " . join(',', @$sorted_volids));
 
     if (my $remove_job = $jobcfg->{remove_job}) {
