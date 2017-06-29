@@ -227,6 +227,7 @@ sub purge_old_states {
 }
 
 sub job_status {
+    my ($get_disabled) = @_;
 
     my $local_node = PVE::INotify::nodename();
 
@@ -255,7 +256,7 @@ sub job_status {
 	    # never sync to local node
 	    next if $target eq $local_node;
 
-	    next if $jobcfg->{disable};
+	    next if !$get_disabled && $jobcfg->{disable};
 	}
 
 	my $state = extract_job_state($stateobj, $jobcfg);
