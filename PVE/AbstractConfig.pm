@@ -480,8 +480,12 @@ sub snapshot_delete {
 
     my $prepare = 1;
 
-    my $snap;
     my $unused = [];
+
+    my $conf = $class->load_config($vmid);
+    my $snap = $conf->{snapshots}->{$snapname};
+
+    die "snapshot '$snapname' does not exist\n" if !defined($snap);
 
     $class->set_lock($vmid, 'snapshot-delete')
 	if (!$drivehash); # doesn't already have a 'snapshot' lock
