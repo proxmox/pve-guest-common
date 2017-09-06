@@ -89,13 +89,13 @@ my $eval_int = sub {
     my ($self, $func, @param) = @_;
 
     eval {
-	local $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = sub {
-	    $self->{delayed_interrupt} = 0;
-	    die "interrupted by signal\n";
-	};
-	local $SIG{PIPE} = sub {
-	    $self->{delayed_interrupt} = 0;
-	    die "interrupted by signal\n";
+	local $SIG{INT} =
+	    local $SIG{TERM} =
+	    local $SIG{QUIT} =
+	    local $SIG{HUP} =
+	    local $SIG{PIPE} = sub {
+		$self->{delayed_interrupt} = 0;
+		die "interrupted by signal\n";
 	};
 
 	my $di = $self->{delayed_interrupt};
@@ -147,9 +147,13 @@ sub migrate {
 
     my $starttime = time();
 
-    local $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = $SIG{PIPE} = sub {
-	$self->log('err', "received interrupt - delayed");
-	$self->{delayed_interrupt} = 1;
+    local $SIG{INT} =
+	local $SIG{TERM} =
+	local $SIG{QUIT} =
+	local $SIG{HUP} =
+	local $SIG{PIPE} = sub {
+	    $self->log('err', "received interrupt - delayed");
+	    $self->{delayed_interrupt} = 1;
     };
 
     # lock container during migration
