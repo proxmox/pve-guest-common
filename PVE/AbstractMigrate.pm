@@ -107,9 +107,6 @@ my $eval_int = sub {
     };
 };
 
-my @ssh_opts = ('-o', 'BatchMode=yes');
-my @ssh_cmd = ('/usr/bin/ssh', @ssh_opts);
-
 # FIXME: nodeip is now unused
 sub migrate {
     my ($class, $node, $nodeip, $vmid, $opts) = @_;
