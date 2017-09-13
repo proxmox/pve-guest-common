@@ -2,7 +2,36 @@ package PVE::VZDump::Plugin;
 
 use strict;
 use warnings;
-use PVE::VZDump;
+
+use POSIX qw(strftime);
+
+use PVE::Tools;
+use PVE::SafeSyslog;
+
+my $log_level = {
+    err =>  'ERROR:',
+    info => 'INFO:',
+    warn => 'WARN:',
+};
+
+sub debugmsg {
+    my ($mtype, $msg, $logfd, $syslog) = @_;
+
+    chomp $msg;
+
+    return if !$msg;
+
+    my $pre = $log_level->{$mtype} || $log_level->{'err'};
+
+    my $timestr = strftime ("%F %H:%M:%S", CORE::localtime);
+
+    syslog ($mtype eq 'info' ? 'info' : 'err', "$pre $msg") if $syslog;
+
+    foreach my $line (split (/\n/, $msg)) {
+	print STDERR "$pre $line\n";
+	print $logfd "$timestr $pre $line\n" if $logfd;
+    }
+}
 
 sub set_logfd {
     my ($self, $logfd) = @_;
@@ -13,7 +42,12 @@ sub set_logfd {
 sub cmd {
     my ($self, $cmdstr, %param) = @_;
 
-    return PVE::VZDump::run_command($self->{logfd}, $cmdstr, %param);   
+    my $logfunc = sub {
+	my $line = shift;
+	debugmsg ('info', $line, $self->{logfd});
+    };
+
+    PVE::Tools::run_command($cmdstr, %param, logfunc => $logfunc);
 }
 
 sub cmd_noerr {
@@ -28,13 +62,13 @@ sub cmd_noerr {
 sub loginfo {
     my ($self, $msg) = @_;
 
-    PVE::VZDump::debugmsg('info', $msg, $self->{logfd}, 0);
+    debugmsg('info', $msg, $self->{logfd}, 0);
 }
 
 sub logerr {
     my ($self, $msg) = @_;
 
-    PVE::VZDump::debugmsg('err', $msg, $self->{logfd}, 0);
+    debugmsg('err', $msg, $self->{logfd}, 0);
 }
 
 sub type {
