@@ -146,13 +146,13 @@ sub prepare {
 }
 
 sub replicate_volume {
-    my ($ssh_info, $storecfg, $volid, $base_snapshot, $sync_snapname, $rate, $insecure) = @_;
+    my ($ssh_info, $storecfg, $volid, $base_snapshot, $sync_snapname, $rate, $insecure, $logfunc) = @_;
 
     my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid);
 
     my $ratelimit_bps = int(1000000*$rate) if $rate;
     PVE::Storage::storage_migrate($storecfg, $volid, $ssh_info, $storeid, $volname,
-				  $base_snapshot, $sync_snapname, $ratelimit_bps, $insecure, 1);
+				  $base_snapshot, $sync_snapname, $ratelimit_bps, $insecure, 1, $logfunc);
 }
 
 
@@ -281,7 +281,7 @@ sub replicate {
 		$logfunc->("full sync '$volid' ($sync_snapname)");
 	    }
 
-	    replicate_volume($ssh_info, $storecfg, $volid, $base_snapname, $sync_snapname, $rate, $insecure);
+	    replicate_volume($ssh_info, $storecfg, $volid, $base_snapname, $sync_snapname, $rate, $insecure, $logfunc);
 	}
     };
     $err = $@;
