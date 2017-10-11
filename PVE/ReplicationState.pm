@@ -197,6 +197,7 @@ sub purge_old_states {
     my $local_node = PVE::INotify::nodename();
 
     my $cfg = PVE::ReplicationConfig->new();
+    PVE::Cluster::cfs_update(1); # fail if we cannot query the vm list
     my $vms = PVE::Cluster::get_vmlist();
 
     my $used_tids = {};
