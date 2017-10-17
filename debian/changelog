@@ -1,3 +1,11 @@
+libpve-guest-common-perl (2.0-13) unstable; urgency=medium
+
+  * replication: purge states: verify the vmlist
+
+  * add logfunc in storage_migration.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 17 Oct 2017 15:04:32 +0200
+
 libpve-guest-common-perl (2.0-12) unstable; urgency=medium
 
   * Fix #1480: locked VMs after trying to delete a non-existent snapshot
