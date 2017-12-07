@@ -304,7 +304,7 @@ sub replicate {
 }
 
 my $run_replication_nolock = sub {
-    my ($guest_class, $jobcfg, $iteration, $start_time, $logfunc, $noerr, $verbose) = @_;
+    my ($guest_class, $jobcfg, $iteration, $start_time, $logfunc, $verbose) = @_;
 
     my $jobid = $jobcfg->{id};
 
@@ -313,79 +313,66 @@ my $run_replication_nolock = sub {
     # we normaly write errors into the state file,
     # but we also catch unexpected errors and log them to syslog
     # (for examply when there are problems writing the state file)
-    eval {
-	my $state = PVE::ReplicationState::read_job_state($jobcfg);
 
-	PVE::ReplicationState::record_job_start($jobcfg, $state, $start_time, $iteration);
+    my $state = PVE::ReplicationState::read_job_state($jobcfg);
 
-	my $t0 = [gettimeofday];
+    PVE::ReplicationState::record_job_start($jobcfg, $state, $start_time, $iteration);
 
-	mkdir $PVE::ReplicationState::replicate_logdir;
-	my $logfile = PVE::ReplicationState::job_logfile_name($jobid);
-	open(my $logfd, '>', $logfile) ||
-	    die "unable to open replication log '$logfile' - $!\n";
+    my $t0 = [gettimeofday];
 
-	my $logfunc_wrapper = sub {
-	    my ($msg) = @_;
+    mkdir $PVE::ReplicationState::replicate_logdir;
+    my $logfile = PVE::ReplicationState::job_logfile_name($jobid);
+    open(my $logfd, '>', $logfile) ||
+	die "unable to open replication log '$logfile' - $!\n";
 
-	    my $ctime = get_log_time();
-	    print $logfd "$ctime $jobid: $msg\n";
-	    if ($logfunc) {
-		if ($verbose) {
-		    $logfunc->("$ctime $jobid: $msg");
-		} else {
-		    $logfunc->($msg);
-		}
+    my $logfunc_wrapper = sub {
+	my ($msg) = @_;
+
+	my $ctime = get_log_time();
+	print $logfd "$ctime $jobid: $msg\n";
+	if ($logfunc) {
+	    if ($verbose) {
+		$logfunc->("$ctime $jobid: $msg");
+	    } else {
+		$logfunc->($msg);
 	    }
-	};
-
-	$logfunc_wrapper->("start replication job");
-
-	eval {
-	    $volumes = replicate($guest_class, $jobcfg, $state, $start_time, $logfunc_wrapper);
-	};
-	my $err = $@;
-
-	if ($err) {
-	    my $msg = "end replication job with error: $err";
-	    chomp $msg;
-	    $logfunc_wrapper->($msg);
-	} else {
-	    $logfunc_wrapper->("end replication job");
 	}
-
-	PVE::ReplicationState::record_job_end($jobcfg, $state, $start_time, tv_interval($t0), $err);
-
-	close($logfd);
-
-	die $err if $err && !$noerr;
     };
-    if (my $err = $@) {
-	if ($noerr) {
-	    warn "$jobid: got unexpected replication job error - $err";
-	} else {
-	    die $err;
-	}
+
+    $logfunc_wrapper->("start replication job");
+
+    eval {
+	$volumes = replicate($guest_class, $jobcfg, $state, $start_time, $logfunc_wrapper);
+    };
+    my $err = $@;
+
+    if ($err) {
+	my $msg = "end replication job with error: $err";
+	chomp $msg;
+	$logfunc_wrapper->($msg);
+    } else {
+	$logfunc_wrapper->("end replication job");
     }
+
+    PVE::ReplicationState::record_job_end($jobcfg, $state, $start_time, tv_interval($t0), $err);
+
+    close($logfd);
+
+    die $err if $err;
 
     return $volumes;
 };
 
 sub run_replication {
-    my ($guest_class, $jobcfg, $iteration, $start_time, $logfunc, $noerr, $verbose) = @_;
+    my ($guest_class, $jobcfg, $iteration, $start_time, $logfunc, $verbose) = @_;
 
     my $volumes;
 
-    eval {
-	my $timeout = 2; # do not wait too long - we repeat periodically anyways
-	$volumes = PVE::GuestHelpers::guest_migration_lock(
-	    $jobcfg->{guest}, $timeout, $run_replication_nolock,
-	    $guest_class, $jobcfg, $iteration, $start_time, $logfunc, $noerr, $verbose);
-    };
-    if (my $err = $@) {
-	return undef if $noerr;
-	die $err;
-    }
+    my $timeout = 2; # do not wait too long - we repeat periodically anyways
+    $volumes = PVE::GuestHelpers::guest_migration_lock(
+	$jobcfg->{guest}, $timeout, $run_replication_nolock,
+	$guest_class, $jobcfg, $iteration, $start_time, $logfunc, $verbose);
+
     return $volumes;
 }
 
