@@ -1,3 +1,10 @@
+libpve-guest-common-perl (2.0-14) unstable; urgency=medium
+
+  * leave handling or reporting of replication errors to the user of the
+    functions (pve-manager/API)
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 13 Dec 2017 12:04:36 +0100
+
 libpve-guest-common-perl (2.0-13) unstable; urgency=medium
 
   * replication: purge states: verify the vmlist
