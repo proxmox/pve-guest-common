@@ -21,11 +21,12 @@ sub debugmsg {
 
     return if !$msg;
 
-    my $pre = $log_level->{$mtype} || $log_level->{'err'};
+    my $level = $log_level->{$mtype} ? $mtype : 'err';
+    my $pre = $log_level->{$level};
 
     my $timestr = strftime ("%F %H:%M:%S", CORE::localtime);
 
-    syslog ($mtype eq 'info' ? 'info' : 'err', "$pre $msg") if $syslog;
+    syslog ($level, "$pre $msg") if $syslog;
 
     foreach my $line (split (/\n/, $msg)) {
 	print STDERR "$pre $line\n";
