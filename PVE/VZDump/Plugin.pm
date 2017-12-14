@@ -60,6 +60,12 @@ sub cmd_noerr {
     return $res;
 }
 
+sub log {
+    my ($self, $level, $msg, $to_syslog) = @_;
+
+    debugmsg($level, $msg, $self->{logfd}, $to_syslog);
+}
+
 sub loginfo {
     my ($self, $msg) = @_;
 
