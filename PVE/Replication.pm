@@ -136,8 +136,21 @@ sub prepare {
 		$last_snapshots->{$volid}->{$snap} = 1;
 	    } elsif ($snap =~ m/^\Q$prefix\E/) {
 		$logfunc->("delete stale replication snapshot '$snap' on $volid");
-		PVE::Storage::volume_snapshot_delete($storecfg, $volid, $snap);
-		$cleaned_replicated_volumes->{$volid} = 1;
+
+		eval {
+		    PVE::Storage::volume_snapshot_delete($storecfg, $volid, $snap);
+		    $cleaned_replicated_volumes->{$volid} = 1;
+		};
+
+		# If deleting the snapshot fails, we can not be sure if it was due to an error or a timeout.
+		# The likelihood that the delete has worked out is high at a timeout.
+		# If it really fails, it will try to remove on the next run.
+
+		# warn is for syslog/journal.
+		warn $@ if $@;
+
+		# logfunc will written in replication log.
+		$logfunc->("delete stale replication snapshot error: $@") if $@;
 	    }
 	}
     }
@@ -296,9 +309,18 @@ sub replicate {
     # remove old snapshots because they are no longer needed
     $cleanup_local_snapshots->($last_snapshots, $last_sync_snapname);
 
-    remote_finalize_local_job($ssh_info, $jobid, $vmid, $sorted_volids, $start_time, $logfunc);
+    eval {
+	remote_finalize_local_job($ssh_info, $jobid, $vmid, $sorted_volids, $start_time, $logfunc);
+    };
 
-    die $err if $err;
+    # old snapshots will removed by next run from prepare_local_job.
+    if ($err = $@) {
+	# warn is for syslog/journal.
+	warn $err;
+
+	# logfunc will written in replication log.
+	$logfunc->("delete stale replication snapshot error: err");
+    }
 
     return $volumes;
 }
