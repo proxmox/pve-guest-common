@@ -145,12 +145,13 @@ sub prepare {
 		# If deleting the snapshot fails, we can not be sure if it was due to an error or a timeout.
 		# The likelihood that the delete has worked out is high at a timeout.
 		# If it really fails, it will try to remove on the next run.
+		if (my $err = $@) {
+		    # warn is for syslog/journal.
+		    warn $err;
 
-		# warn is for syslog/journal.
-		warn $@ if $@;
-
-		# logfunc will written in replication log.
-		$logfunc->("delete stale replication snapshot error: $@") if $@;
+		    # logfunc will written in replication log.
+		    $logfunc->("delete stale replication snapshot error: $err");
+		}
 	    }
 	}
     }
@@ -297,9 +298,8 @@ sub replicate {
 	    replicate_volume($ssh_info, $storecfg, $volid, $base_snapname, $sync_snapname, $rate, $insecure, $logfunc);
 	}
     };
-    $err = $@;
 
-    if ($err) {
+    if ($err = $@) {
 	$cleanup_local_snapshots->($replicate_snapshots, $sync_snapname); # try to cleanup
 	# we do not cleanup the remote side here - this is done in
 	# next run of prepare_local_job
