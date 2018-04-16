@@ -319,7 +319,7 @@ sub replicate {
 	warn $err;
 
 	# logfunc will written in replication log.
-	$logfunc->("delete stale replication snapshot error: err");
+	$logfunc->("delete stale replication snapshot error: $err");
     }
 
     return $volumes;
