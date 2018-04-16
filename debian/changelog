@@ -1,3 +1,13 @@
+libpve-guest-common-perl (2.0-15) unstable; urgency=medium
+
+  * fix #1694: make failure of snapshot removal non-fatal
+
+  * vzdump: add common log sub-method
+
+  * vzdump: allow all defined log levels
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 16 Apr 2018 11:47:34 +0200
+
 libpve-guest-common-perl (2.0-14) unstable; urgency=medium
 
   * leave handling or reporting of replication errors to the user of the
