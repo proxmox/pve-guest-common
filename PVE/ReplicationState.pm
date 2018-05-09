@@ -240,67 +240,71 @@ sub job_status {
 
     my $vms = PVE::Cluster::get_vmlist();
 
-    foreach my $jobid (sort keys %{$cfg->{ids}}) {
-	my $jobcfg = $cfg->{ids}->{$jobid};
-	my $vmid = $jobcfg->{guest};
+    my $func = sub {
+	foreach my $jobid (sort keys %{$cfg->{ids}}) {
+	    my $jobcfg = $cfg->{ids}->{$jobid};
+	    my $vmid = $jobcfg->{guest};
 
-	die "internal error - not implemented" if $jobcfg->{type} ne 'local';
+	    die "internal error - not implemented" if $jobcfg->{type} ne 'local';
 
-	# skip non existing vms
-	next if !$vms->{ids}->{$vmid};
+	    # skip non existing vms
+	    next if !$vms->{ids}->{$vmid};
 
-	# only consider guest on local node
-	next if $vms->{ids}->{$vmid}->{node} ne $local_node;
+	    # only consider guest on local node
+	    next if $vms->{ids}->{$vmid}->{node} ne $local_node;
 
-	my $target = $jobcfg->{target};
-	if (!$jobcfg->{remove_job}) {
-	    # check if vm was stolen (swapped source target)
-	    if ($target eq $local_node) {
-		my $source = $jobcfg->{source};
-		if (defined($source) && $source ne $target) {
-		    $jobcfg = PVE::ReplicationConfig::swap_source_target_nolock($jobid);
-		    $cfg->{ids}->{$jobid} = $jobcfg;
+	    my $target = $jobcfg->{target};
+	    if (!$jobcfg->{remove_job}) {
+		# check if vm was stolen (swapped source target)
+		if ($target eq $local_node) {
+		    my $source = $jobcfg->{source};
+		    if (defined($source) && $source ne $target) {
+			$jobcfg = PVE::ReplicationConfig::swap_source_target_nolock($jobid);
+			$cfg->{ids}->{$jobid} = $jobcfg;
+		    } else {
+			# never sync to local node
+			next;
+		    }
+		}
+
+		next if !$get_disabled && $jobcfg->{disable};
+	    }
+
+	    my $state = extract_job_state($stateobj, $jobcfg);
+	    $jobcfg->{state} = $state;
+	    $jobcfg->{id} = $jobid;
+	    $jobcfg->{vmtype} = $vms->{ids}->{$vmid}->{type};
+
+	    my $next_sync = 0;
+
+	    if ($jobcfg->{remove_job}) {
+		$next_sync = 1; # lowest possible value
+		# todo: consider fail_count? How many retries?
+	    } else  {
+		if (my $fail_count = $state->{fail_count}) {
+		    my $members = PVE::Cluster::get_members();
+		    if (!$fail_count || ($members->{$target} && $members->{$target}->{online})) {
+			$next_sync = $state->{last_try} + 60*($fail_count < 3 ? 5*$fail_count : 30);
+		    }
 		} else {
-		    # never sync to local node
-		    next;
+		    my $schedule =  $jobcfg->{schedule} || '*/15';
+		    my $calspec = PVE::CalendarEvent::parse_calendar_event($schedule);
+		    $next_sync = PVE::CalendarEvent::compute_next_event($calspec, $state->{last_try}) // 0;
 		}
 	    }
 
-	    next if !$get_disabled && $jobcfg->{disable};
-	}
+	    $jobcfg->{next_sync} = $next_sync;
 
-	my $state = extract_job_state($stateobj, $jobcfg);
-	$jobcfg->{state} = $state;
-	$jobcfg->{id} = $jobid;
-	$jobcfg->{vmtype} = $vms->{ids}->{$vmid}->{type};
-
-	my $next_sync = 0;
-
-	if ($jobcfg->{remove_job}) {
-	    $next_sync = 1; # lowest possible value
-	    # todo: consider fail_count? How many retries?
-	} else  {
-	    if (my $fail_count = $state->{fail_count}) {
-		my $members = PVE::Cluster::get_members();
-		if (!$fail_count || ($members->{$target} && $members->{$target}->{online})) {
-		    $next_sync = $state->{last_try} + 60*($fail_count < 3 ? 5*$fail_count : 30);
-		}
-	    } else {
-		my $schedule =  $jobcfg->{schedule} || '*/15';
-		my $calspec = PVE::CalendarEvent::parse_calendar_event($schedule);
-		$next_sync = PVE::CalendarEvent::compute_next_event($calspec, $state->{last_try}) // 0;
+	    if (!defined($jobcfg->{source}) || $jobcfg->{source} ne $local_node) {
+		$jobcfg->{source} = $cfg->{ids}->{$jobid}->{source} = $local_node;
+		PVE::ReplicationConfig::write($cfg);
 	    }
+
+	    $jobs->{$jobid} = $jobcfg;
 	}
+    };
 
-	$jobcfg->{next_sync} = $next_sync;
-
-	if (!defined($jobcfg->{source}) || $jobcfg->{source} ne $local_node) {
-	    $jobcfg->{source} = $cfg->{ids}->{$jobid}->{source} = $local_node;
-	    PVE::ReplicationConfig::write($cfg);
-	}
-
-	$jobs->{$jobid} = $jobcfg;
-    }
+    PVE::ReplicationConfig::lock($func);
 
     return $jobs;
 }
