@@ -54,6 +54,21 @@ sub find_common_replication_snapshot {
 		     ($last_snapshots->{$volid}->{$parent_snapname} &&
 		      $remote_snapshots->{$volid}->{$parent_snapname})) {
 		$base_snapshots->{$volid} = $parent_snapname;
+	    } elsif ($last_sync == 0) {
+		my @desc_sorted_snap =
+		    map { $_->[1] } sort { $b->[0] <=> $a->[0] }
+		    map { [ ($_ =~ /__replicate_\Q$jobid\E_(\d+)_/)[0] || 0, $_ ] }
+		    keys %{$remote_snapshots->{$volid}};
+
+		foreach my $remote_snap (@desc_sorted_snap) {
+		    if (defined($last_snapshots->{$volid}->{$remote_snap})) {
+			$base_snapshots->{$volid} = $remote_snap;
+			last;
+		    }
+		}
+		die "No common base to restore the job state\n".
+		    "please delete jobid: $jobid and create the job again\n"
+		    if !defined($base_snapshots->{$volid});
 	    }
 	}
     }
