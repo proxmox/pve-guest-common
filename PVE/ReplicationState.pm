@@ -254,8 +254,17 @@ sub job_status {
 
 	my $target = $jobcfg->{target};
 	if (!$jobcfg->{remove_job}) {
-	    # never sync to local node
-	    next if $target eq $local_node;
+	    # check if vm was stolen (swapped source target)
+	    if ($target eq $local_node) {
+		my $source = $jobcfg->{source};
+		if (defined($source) && $source ne $target) {
+		    $jobcfg = PVE::ReplicationConfig::swap_source_target_nolock($jobid);
+		    $cfg->{ids}->{$jobid} = $jobcfg;
+		} else {
+		    # never sync to local node
+		    next;
+		}
+	    }
 
 	    next if !$get_disabled && $jobcfg->{disable};
 	}
