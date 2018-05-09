@@ -214,8 +214,13 @@ sub replicate {
 
 	if ($remove_job eq 'full' && $jobcfg->{target} ne $local_node) {
 	    # remove all remote volumes
+	    my @store_list = map { (PVE::Storage::parse_volume_id($_))[0] } @$sorted_volids;
+
+	    my %hash = map { $_ => 1 } @store_list;
+
 	    my $ssh_info = PVE::Cluster::get_ssh_info($jobcfg->{target});
-	    remote_prepare_local_job($ssh_info, $jobid, $vmid, [], $state->{storeid_list}, 0, undef, 1, $logfunc);
+
+	    remote_prepare_local_job($ssh_info, $jobid, $vmid, [], [ keys %hash ], 1, undef, 1, $logfunc);
 
 	}
 	# remove all local replication snapshots (lastsync => 0)
