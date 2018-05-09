@@ -285,6 +285,11 @@ sub job_status {
 
 	$jobcfg->{next_sync} = $next_sync;
 
+	if (!defined($jobcfg->{source}) || $jobcfg->{source} ne $local_node) {
+	    $jobcfg->{source} = $cfg->{ids}->{$jobid}->{source} = $local_node;
+	    PVE::ReplicationConfig::write($cfg);
+	}
+
 	$jobs->{$jobid} = $jobcfg;
     }
 

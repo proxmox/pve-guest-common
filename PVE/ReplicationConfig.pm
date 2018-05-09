@@ -79,6 +79,11 @@ my $defaultData = {
 	    default => '*/15',
 	    optional => 1,
 	},
+	source => {
+	    description => "Source of the replication.",
+	    type => 'string', format => 'pve-node',
+	    optional => 1,
+	},
     },
 };
 
@@ -278,6 +283,7 @@ sub options {
 	rate => { optional => 1 },
 	schedule => { optional => 1 },
 	remove_job => { optional => 1 },
+	source => { optional => 1 },
     };
 }
 
