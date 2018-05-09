@@ -135,22 +135,26 @@ sub prepare {
 		(defined($parent_snapname) && ($snap eq $parent_snapname))) {
 		$last_snapshots->{$volid}->{$snap} = 1;
 	    } elsif ($snap =~ m/^\Q$prefix\E/) {
-		$logfunc->("delete stale replication snapshot '$snap' on $volid");
+		if ($last_sync != 0) {
+		    $logfunc->("delete stale replication snapshot '$snap' on $volid");
+		    eval {
+			PVE::Storage::volume_snapshot_delete($storecfg, $volid, $snap);
+			$cleaned_replicated_volumes->{$volid} = 1;
+		    };
 
-		eval {
-		    PVE::Storage::volume_snapshot_delete($storecfg, $volid, $snap);
-		    $cleaned_replicated_volumes->{$volid} = 1;
-		};
+		    # If deleting the snapshot fails, we can not be sure if it was due to an error or a timeout.
+		    # The likelihood that the delete has worked out is high at a timeout.
+		    # If it really fails, it will try to remove on the next run.
+		    if (my $err = $@) {
+			# warn is for syslog/journal.
+			warn $err;
 
-		# If deleting the snapshot fails, we can not be sure if it was due to an error or a timeout.
-		# The likelihood that the delete has worked out is high at a timeout.
-		# If it really fails, it will try to remove on the next run.
-		if (my $err = $@) {
-		    # warn is for syslog/journal.
-		    warn $err;
-
-		    # logfunc will written in replication log.
-		    $logfunc->("delete stale replication snapshot error: $err");
+			# logfunc will written in replication log.
+			$logfunc->("delete stale replication snapshot error: $err");
+		    }		
+		# Last_sync=0 and a replication snapshot only occur, if the VM was stolen
+		} else {
+		    $last_snapshots->{$volid}->{$snap} = 1;
 		}
 	    }
 	}
@@ -219,12 +223,11 @@ sub replicate {
 	    my %hash = map { $_ => 1 } @store_list;
 
 	    my $ssh_info = PVE::Cluster::get_ssh_info($jobcfg->{target});
-
 	    remote_prepare_local_job($ssh_info, $jobid, $vmid, [], [ keys %hash ], 1, undef, 1, $logfunc);
 
 	}
 	# remove all local replication snapshots (lastsync => 0)
-	prepare($storecfg, $sorted_volids, $jobid, 0, undef, $logfunc);
+	prepare($storecfg, $sorted_volids, $jobid, 1, undef, $logfunc);
 
 	PVE::ReplicationConfig::delete_job($jobid); # update config
 	$logfunc->("job removed");
