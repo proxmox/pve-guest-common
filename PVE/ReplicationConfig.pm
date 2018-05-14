@@ -170,7 +170,7 @@ sub write_config {
 	    if defined($data->{comment});
     }
 
-    $class->SUPER::write_config($filename, $cfg);
+    return $class->SUPER::write_config($filename, $cfg);
 }
 
 sub new {
