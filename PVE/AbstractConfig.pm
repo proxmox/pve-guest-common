@@ -285,6 +285,15 @@ sub __snapshot_delete_vol_snapshot {
     die "abstract method - implement me\n";
 }
 
+# called during rollback prepare, and between config rollback and starting guest
+# can change config, e.g. for vmgenid
+# $data is shared across calls and passed to vm_start
+sub __snapshot_rollback_hook {
+    my ($class, $vmid, $conf, $snap, $prepare, $data) = @_;
+
+    return;
+}
+
 # Checks whether a volume snapshot is possible for this volume.
 sub __snapshot_rollback_vol_possible {
     my ($class, $volume, $snapname) = @_;
@@ -308,7 +317,7 @@ sub __snapshot_rollback_vm_stop {
 
 # Start the VM/CT after a rollback with restored vmstate.
 sub __snapshot_rollback_vm_start {
-    my ($class, $vmid, $vmstate, $forcemachine);
+    my ($class, $vmid, $vmstate, $data);
 
     die "abstract method - implement me\n";
 }
@@ -631,6 +640,8 @@ sub snapshot_rollback {
 	$class->__snapshot_rollback_vol_possible($volume, $snapname);
     });
 
+    my $data = {};
+
     my $updatefn = sub {
 
 	$conf = $class->load_config($vmid);
@@ -653,36 +664,24 @@ sub snapshot_rollback {
 	} else {
 	    die "got wrong lock\n" if !($conf->{lock} && $conf->{lock} eq 'rollback');
 	    delete $conf->{lock};
-	}
 
-	# machine only relevant for Qemu
-	my $forcemachine;
-
-	if (!$prepare) {
 	    my $unused = $class->__snapshot_rollback_get_unused($conf, $snap);
 
 	    foreach my $volid (@$unused) {
 		$class->add_unused_volume($conf, $volid);
 	    }
 
-	    my $has_machine_config = defined($conf->{machine});
-
 	    # copy snapshot config to current config
 	    $conf = $class->__snapshot_apply_config($conf, $snap);
 	    $conf->{parent} = $snapname;
-
-	    # Note: old code did not store 'machine', so we try to be smart
-	    # and guess the snapshot was generated with kvm 1.4 (pc-i440fx-1.4).
-	    $forcemachine = $conf->{machine} || 'pc-i440fx-1.4';
-	    # we remove the 'machine' configuration if not explicitly specified
-	    # in the original config.
-	    delete $conf->{machine} if $snap->{vmstate} && !$has_machine_config;
 	}
+
+	$class->__snapshot_rollback_hook($vmid, $conf, $snap, $prepare, $data);
 
 	$class->write_config($vmid, $conf);
 
 	if (!$prepare && $snap->{vmstate}) {
-	    $class->__snapshot_rollback_vm_start($vmid, $snap->{vmstate}, $forcemachine);
+	    $class->__snapshot_rollback_vm_start($vmid, $snap->{vmstate}, $data);
 	}
     };
 
