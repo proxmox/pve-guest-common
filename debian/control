@@ -4,7 +4,7 @@ Priority: optional
 Maintainer: Proxmox Support Team <support@proxmox.com>
 Build-Depends: debhelper (>= 9),
                perl (>= 5.10.0-19),
-Standards-Version: 3.9.5
+Standards-Version: 3.9.8
 Homepage: http://www.proxmox.com
 
 Package: libpve-guest-common-perl
