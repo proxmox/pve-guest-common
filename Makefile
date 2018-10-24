@@ -3,6 +3,7 @@ PKGVER=2.0
 PKGREL=18
 
 DEB=${PACKAGE}_${PKGVER}-${PKGREL}_all.deb
+DSC=${PACKAGE}_${PKGVER}-${PKGREL}.dsc
 
 DESTDIR=
 
@@ -18,6 +19,14 @@ ${DEB}:
 	rsync -a * build
 	cd build; dpkg-buildpackage -b -us -uc
 	lintian ${DEB}
+
+.PHONY: dsc
+dsc: ${DSC}
+${DSC}:
+	rm -rf build
+	rsync -a * build
+	cd build; dpkg-buildpackage -S -us -uc -d -nc
+	lintian ${DSC}
 
 install: PVE
 	install -d ${PERL5DIR}/PVE
@@ -37,7 +46,7 @@ upload: ${DEB}
 distclean: clean
 
 clean:
-	rm -rf ./build *.deb *.changes *.buildinfo
+	rm -rf ./build *.deb *.dsc *.changes *.buildinfo *.tar.gz
 
 .PHONY: dinstall
 dinstall: ${DEB}
