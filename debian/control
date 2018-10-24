@@ -12,6 +12,7 @@ Architecture: all
 Depends: libpve-common-perl (>= 4.0-89),
          libpve-storage-perl (>= 5.0-16),
          pve-cluster,
+         ${misc:Depends},
          ${perl:Depends},
 Breaks: libpve-common-perl (<< 4.0-89),
         pve-manager (<< 5.1-40),
