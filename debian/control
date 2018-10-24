@@ -3,7 +3,6 @@ Section: perl
 Priority: optional
 Maintainer: Proxmox Support Team <support@proxmox.com>
 Build-Depends: debhelper (>= 10~),
-               perl (>= 5.10.0-19),
 Standards-Version: 3.9.8
 Homepage: http://www.proxmox.com
 
