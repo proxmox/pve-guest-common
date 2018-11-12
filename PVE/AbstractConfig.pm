@@ -697,4 +697,17 @@ sub snapshot_rollback {
     $class->lock_config($vmid, $updatefn);
 }
 
+# bash completion helper
+
+sub complete_snapshot_name {
+    my ($class) = @_;
+    my $vmid = $_[4][0];
+
+    my $conf = $class->load_config($vmid);
+
+    my $snapshot = [ keys %{$conf->{snapshots}} ];
+
+    return $snapshot;
+}
+
 1;
