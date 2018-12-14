@@ -36,7 +36,7 @@ sub read_state {
     return {} if $raw eq '';
 
     # untaint $raw
-    if ($raw =~ m/^({.*})$/) {
+    if ($raw =~ m/^(\{.*\})$/) {
 	return decode_json($1);
     }
 
