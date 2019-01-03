@@ -699,13 +699,14 @@ sub snapshot_rollback {
 
 # bash completion helper
 
-sub complete_snapshot_name {
-    my ($class) = @_;
-    my $vmid = $_[4][0];
+sub snapshot_list {
+    my ($class, $vmid) = @_;
 
-    my $conf = $class->load_config($vmid);
-
-    my $snapshot = [ keys %{$conf->{snapshots}} ];
+    my $snapshot = eval {
+	my $conf = $class->load_config($vmid);
+	my $snapshots = $conf->{snapshots} || [];
+	[ sort keys %$snapshots ]
+    } || [];
 
     return $snapshot;
 }
