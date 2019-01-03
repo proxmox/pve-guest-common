@@ -1,3 +1,11 @@
+libpve-guest-common-perl (2.0-19) unstable; urgency=medium
+
+  * add bash completion helper for snapshot names
+
+  * fixup some deprecated code usage
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 03 Jan 2019 09:55:20 +0100
+
 libpve-guest-common-perl (2.0-18) unstable; urgency=medium
 
   * add snapshot rollback hook and remove qemu machine code
