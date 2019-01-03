@@ -1,6 +1,6 @@
 PACKAGE=libpve-guest-common-perl
-PKGVER=2.0
-PKGREL=18
+PKGVER != dpkg-parsechangelog -Sversion | cut -d- -f1
+PKGREL != dpkg-parsechangelog -Sversion | cut -d- -f2
 
 DEB=${PACKAGE}_${PKGVER}-${PKGREL}_all.deb
 DSC=${PACKAGE}_${PKGVER}-${PKGREL}.dsc
