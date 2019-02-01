@@ -9,7 +9,7 @@ Homepage: http://www.proxmox.com
 Package: libpve-guest-common-perl
 Architecture: all
 Depends: libpve-common-perl (>= 4.0-89),
-         libpve-storage-perl (>= 5.0-16),
+         libpve-storage-perl (>= 5.0-37),
          pve-cluster,
          ${misc:Depends},
          ${perl:Depends},
