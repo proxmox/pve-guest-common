@@ -46,27 +46,17 @@ sub exec_hookscript {
     my ($conf, $vmid, $phase, $stop_on_error) = @_;
 
     return if !$conf->{hookscript};
-    my $hookscript = eval { check_hookscript($conf->{hookscript}) };
-    if (my $err = $@) {
-	if ($stop_on_error) {
-	    die $err;
-	} else {
-	    warn $err;
-	    return;
-	}
-    }
 
     eval {
+	my $hookscript = check_hookscript($conf->{hookscript});
+	die $@ if $@;
+
 	PVE::Tools::run_command([$hookscript, $vmid, $phase]);
     };
-
     if (my $err = $@) {
 	my $errmsg = "hookscript error for $vmid on $phase: $err\n";
-	if ($stop_on_error) {
-	    die $errmsg;
-	} else {
-	    warn $errmsg;
-	}
+	die $errmsg if ($stop_on_error);
+	warn $errmsg;
     }
 }
 
