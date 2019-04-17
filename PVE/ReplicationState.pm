@@ -31,7 +31,7 @@ sub read_state {
 
     return {} if ! -e $state_path;
 
-    my $raw = PVE::Tools::file_get_contents($state_path);
+    my $raw = PVE::Tools::file_get_contents($state_path, (1024 * 1024));
 
     return {} if $raw eq '';
 
