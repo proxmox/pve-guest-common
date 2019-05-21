@@ -45,7 +45,7 @@ install: PVE
 
 .PHONY: upload
 upload: ${DEB}
-	tar cf - ${DEB} | ssh repoman@repo.proxmox.com -- upload --product pve --dist stretch
+	tar cf - ${DEB} | ssh repoman@repo.proxmox.com -- upload --product pve --dist buster
 
 distclean: clean
 
