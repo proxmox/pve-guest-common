@@ -1,9 +1,12 @@
-PACKAGE=libpve-guest-common-perl
-PKGVER != dpkg-parsechangelog -Sversion | cut -d- -f1
-PKGREL != dpkg-parsechangelog -Sversion | cut -d- -f2
+include /usr/share/dpkg/pkg-info.mk
+include /usr/share/dpkg/architecture.mk
 
-DEB=${PACKAGE}_${PKGVER}-${PKGREL}_all.deb
-DSC=${PACKAGE}_${PKGVER}-${PKGREL}.dsc
+PACKAGE=libpve-guest-common-perl
+
+DEB=${PACKAGE}_${DEB_VERSION_UPSTREAM_REVISION}_all.deb
+DSC=${PACKAGE}_${DEB_VERSION_UPSTREAM_REVISION}.dsc
+
+BUILDDIR ?= ${PACKAGE}-${DEB_VERSION_UPSTREAM}
 
 DESTDIR=
 
@@ -12,20 +15,21 @@ DOCDIR=${DESTDIR}/usr/share/doc/${PACKAGE}
 
 all:
 
+${BUILDDIR}:
+	rm -rf ${BUILDDIR}
+	rsync -a * ${BUILDDIR}
+	echo "git clone git://git.proxmox.com/git/pve-guest-common.git\\ngit checkout ${GITVERSION}" > ${BUILDDIR}/debian/SOURCE
+
 .PHONY: deb
 deb: ${DEB}
-${DEB}:
-	rm -rf build
-	rsync -a * build
-	cd build; dpkg-buildpackage -b -us -uc
+${DEB}: ${BUILDDIR}
+	cd ${BUILDDIR}; dpkg-buildpackage -b -us -uc
 	lintian ${DEB}
 
 .PHONY: dsc
 dsc: ${DSC}
-${DSC}:
-	rm -rf build
-	rsync -a * build
-	cd build; dpkg-buildpackage -S -us -uc -d -nc
+${DSC}: ${BUILDDIR}
+	cd ${BUILDDIR}; dpkg-buildpackage -S -us -uc -d -nc
 	lintian ${DSC}
 
 install: PVE
@@ -46,7 +50,7 @@ upload: ${DEB}
 distclean: clean
 
 clean:
-	rm -rf ./build *.deb *.dsc *.changes *.buildinfo *.tar.gz
+	rm -rf ${BUILDDIR} *.deb *.dsc *.changes *.buildinfo *.tar.gz
 
 .PHONY: dinstall
 dinstall: ${DEB}
