@@ -258,6 +258,20 @@ sub delete_job {
     lock($code);
 }
 
+sub remove_vmid_jobs {
+    my ($vmid) = @_;
+
+    my $code = sub {
+	my $cfg = __PACKAGE__->new();
+	foreach my $id (keys %{$cfg->{ids}}) {
+	    delete $cfg->{ids}->{$id} if ($cfg->{ids}->{$id}->{guest} == $vmid);
+	}
+	$cfg->write();
+    };
+
+    lock($code);
+}
+
 sub swap_source_target_nolock {
     my ($jobid) = @_;
 
