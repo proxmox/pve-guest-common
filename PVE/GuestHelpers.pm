@@ -62,13 +62,15 @@ sub exec_hookscript {
     }
 }
 
-sub snapshot_tree {
-    my ($res) = @_;
+# takes a snapshot list (e.g., qm/pct snapshot_list API call result) and
+# prints it out in a nice tree sorted by age. Can cope with multiple roots
+sub print_snapshot_tree {
+    my ($snapshot_list) = @_;
 
-    my $snapshots = { map { $_->{name} => $_ } @$res };
+    my $snapshots = { map { $_->{name} => $_ } @$snapshot_list };
 
     my @roots;
-    foreach my $e (@$res) {
+    foreach my $e (@$snapshot_list) {
 	my $parent;
 	if (($parent = $e->{parent}) && defined $snapshots->{$parent}) {
 	    push @{$snapshots->{$parent}->{children}}, $e->{name};
