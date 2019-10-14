@@ -142,4 +142,39 @@ sub format_pending {
     }
 }
 
+sub conf_table_with_pending {
+    my ($conf, $pending_delete_hash) = @_;
+
+    my $res = [];
+
+    foreach my $opt (keys %$conf) {
+	next if ref($conf->{$opt});
+	my $item = { key => $opt };
+	$item->{value} = $conf->{$opt} if defined($conf->{$opt});
+	$item->{pending} = $conf->{pending}->{$opt} if defined($conf->{pending}->{$opt});
+	$item->{delete} = ($pending_delete_hash->{$opt}->{force} ? 2 : 1) if exists $pending_delete_hash->{$opt};
+
+	push @$res, $item;
+    }
+
+    foreach my $opt (keys %{$conf->{pending}}) {
+	next if $opt eq 'delete';
+	next if ref($conf->{pending}->{$opt}); # just to be sure
+	next if defined($conf->{$opt});
+	my $item = { key => $opt };
+	$item->{pending} = $conf->{pending}->{$opt};
+
+	push @$res, $item;
+    }
+
+    while (my ($opt, $force) = each %$pending_delete_hash) {
+	next if $conf->{pending}->{$opt}; # just to be sure
+	next if $conf->{$opt};
+	my $item = { key => $opt, delete => ($force ? 2 : 1)};
+	push @$res, $item;
+    }
+
+    return $res;
+}
+
 1;
