@@ -68,6 +68,75 @@ sub write_config {
     PVE::Cluster::cfs_write_file($cfspath, $conf);
 }
 
+# Pending changes related
+
+sub parse_pending_delete {
+    my ($class, $data) = @_;
+    $data ||= '';
+    $data =~ s/[,;]/ /g;
+    $data =~ s/^\s+//;
+    return { map { /^(!?)(.*)$/ && ($2, { 'force' => $1 eq '!' ? 1 : 0 } ) } ($data =~ /\S+/g) };
+}
+
+sub print_pending_delete {
+    my ($class, $delete_hash) = @_;
+    join ",", map { ( $delete_hash->{$_}->{force} ? '!' : '' ) . $_ } keys %$delete_hash;
+}
+
+sub add_to_pending_delete {
+    my ($class, $conf, $key, $force) = @_;
+
+    delete $conf->{pending}->{$key};
+    my $pending_delete_hash = $class->parse_pending_delete($conf->{pending}->{delete});
+    $pending_delete_hash->{$key}->{force} = $force;
+    $conf->{pending}->{delete} = $class->print_pending_delete($pending_delete_hash);
+}
+
+sub remove_from_pending_delete {
+    my ($class, $conf, $key) = @_;
+
+    my $pending_delete_hash = $class->parse_pending_delete($conf->{pending}->{delete});
+    delete $pending_delete_hash->{$key};
+
+    if (%$pending_delete_hash) {
+	$conf->{pending}->{delete} = $class->print_pending_delete($pending_delete_hash);
+    } else {
+	delete $conf->{pending}->{delete};
+    }
+}
+
+sub cleanup_pending {
+    my ($class, $conf) = @_;
+
+    # remove pending changes when nothing changed
+    my $changes;
+    foreach my $opt (keys %{$conf->{pending}}) {
+	next if $opt eq 'delete'; # just to be sure
+	if (defined($conf->{$opt}) && ($conf->{pending}->{$opt} eq  $conf->{$opt})) {
+	    $changes = 1;
+	    delete $conf->{pending}->{$opt};
+	}
+    }
+
+    my $current_delete_hash = $class->parse_pending_delete($conf->{pending}->{delete});
+    my $pending_delete_hash = {};
+    while (my ($opt, $force) = each %$current_delete_hash) {
+	if (defined($conf->{$opt})) {
+	    $pending_delete_hash->{$opt} = $force;
+	} else {
+	    $changes = 1;
+	}
+    }
+
+    if (%$pending_delete_hash) {
+	$conf->{pending}->{delete} = $class->print_pending_delete($pending_delete_hash);
+    } else {
+	delete $conf->{pending}->{delete};
+    }
+
+    return $changes;
+}
+
 # Lock config file using flock, run $code with @param, unlock config file.
 # $timeout is the maximum time to aquire the flock
 sub lock_config_full {
