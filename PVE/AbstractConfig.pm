@@ -137,6 +137,46 @@ sub cleanup_pending {
     return $changes;
 }
 
+sub load_snapshot_config {
+    my ($class, $vmid, $snapname) = @_;
+
+    my $conf = $class->load_config($vmid);
+
+    my $snapshot = $conf->{snapshots}->{$snapname};
+    die "snapshot '$snapname' does not exist\n" if !defined($snapshot);
+
+    $snapshot->{digest} = $conf->{digest};
+
+    return $snapshot;
+
+}
+
+sub load_current_config {
+    my ($class, $vmid, $current) = @_;
+
+    my $conf = $class->load_config($vmid);
+
+    # take pending changes in
+    if (!$current) {
+	foreach my $opt (keys %{$conf->{pending}}) {
+	    next if $opt eq 'delete';
+	    my $value = $conf->{pending}->{$opt};
+	    next if ref($value); # just to be sure
+	    $conf->{$opt} = $value;
+	}
+	my $pending_delete_hash = $class->parse_pending_delete($conf->{pending}->{delete});
+	foreach my $opt (keys %$pending_delete_hash) {
+	    delete $conf->{$opt} if $conf->{$opt};
+	}
+    }
+
+    delete $conf->{snapshots};
+    delete $conf->{pending};
+
+    return $conf;
+}
+
+
 # Lock config file using flock, run $code with @param, unlock config file.
 # $timeout is the maximum time to aquire the flock
 sub lock_config_full {
