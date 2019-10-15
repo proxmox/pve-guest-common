@@ -7,6 +7,8 @@ use POSIX qw(strftime);
 
 use PVE::Tools;
 use PVE::SafeSyslog;
+use PVE::Cluster qw(cfs_read_file cfs_write_file cfs_lock_file);
+use PVE::VZDump::Common; # register parser/writer for vzdump.cron
 
 my $log_level = {
     err =>  'ERROR:',
@@ -166,6 +168,50 @@ sub cleanup {
     my ($self, $task, $vmid) = @_;
 
     die "internal error"; # implement in subclass
+}
+
+sub remove_vmid_from_list {
+    my ($list, $rm_vmid) = @_;
+    # this removes the given vmid from the list, if present
+    return join(',', grep { $_ ne $rm_vmid } PVE::Tools::split_list($list));
+}
+
+sub remove_vmid_from_jobs {
+    my ($jobs, $exclude_vmid) = @_;
+
+    my $updated_jobs = [];
+    foreach my $job (@$jobs) {
+	if (defined $job->{vmid}) {
+	    my $list = remove_vmid_from_list($job->{vmid}, $exclude_vmid);
+	    if ($list) {
+		$job->{vmid} = $list;
+		push @$updated_jobs, $job;
+	    }
+	} elsif (defined $job->{exclude}) {
+	    my $list = remove_vmid_from_list($job->{exclude}, $exclude_vmid);
+	    if ($list) {
+		$job->{exclude} = $list;
+	    } else {
+		delete $job->{exclude};
+	    }
+	    push @$updated_jobs, $job;
+	} else {
+	    push @$updated_jobs, $job;
+	}
+    }
+    return $updated_jobs;
+}
+
+sub remove_vmid_from_backup_jobs {
+    my ($vmid) = @_;
+
+    cfs_lock_file('vzdump.cron', undef, sub {
+	my $vzdump_jobs = cfs_read_file('vzdump.cron');
+	my $jobs = $vzdump_jobs->{jobs} || [];
+	$vzdump_jobs->{jobs} = remove_vmid_from_jobs($jobs, $vmid);
+	cfs_write_file('vzdump.cron', $vzdump_jobs);
+    });
+    die "$@" if ($@);
 }
 
 1;
