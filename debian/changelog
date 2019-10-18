@@ -1,3 +1,13 @@
+libpve-guest-common-perl (3.0-2) pve; urgency=medium
+
+  * add various config helpers and interfaces for pending changes, backup jobs,
+    snapshot listing, ..
+
+  * maintain the VZDump config property schema and parser writer here, to allow
+    the guest projects to make use of them
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 18 Oct 2019 21:09:16 +0200
+
 libpve-guest-common-perl (3.0-1) pve; urgency=medium
 
   * rebuild for PVE 6.0 / Debian Buster
