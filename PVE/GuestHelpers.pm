@@ -142,7 +142,12 @@ sub format_pending {
     }
 }
 
-sub conf_table_with_pending {
+# returns the config as an array of hashes, each hash can have the following keys:
+# key (the config property name, non-optional)
+# value (the current value in effect - if any)
+# pending (a new, still pending, value - if any)
+# delete (when deletions are pending, this is set to either 2 (force) or 1 (graceful))
+sub config_with_pending_array {
     my ($conf, $pending_delete_hash) = @_;
 
     my $res = [];
