@@ -60,6 +60,24 @@ my $tests = [
 	},
     ]
 },
+{
+    method => 'print_pending_delete',
+    subtests => [
+	{
+	    params => [{
+		cpu => { force => 0, },
+		memory => { force => 0, },
+	    }],
+	    expect => "memory,cpu",
+	},
+	{
+	    params => [{ # we have no double negation, only simple stuff
+		'!memory' => { force => 1, },
+	    }],
+	    expect => "!!memory",
+	},
+    ]
+},
 ]; # tests definition end
 
 
