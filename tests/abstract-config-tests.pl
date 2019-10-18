@@ -107,7 +107,7 @@ my $tests = [
 {
     method => 'remove_from_pending_delete', # $conf, $key
     subtests => [
-	{ # simple test addition to of a pending deletion to the empty config
+	{
 	    params => [ { pending => { delete => 'memory', } }, 'memory' ],
 	    expect => { pending => {} },
 ,
@@ -121,6 +121,40 @@ my $tests = [
 	    params => [ { pending => { delete => 'cpu', } }, 'memory' ],
 	    expect => { pending => { delete => 'cpu' } },
 ,
+	},
+    ]
+},
+{
+    method => 'cleanup_pending', # $conf
+    subtests => [
+	{ # want to delete opt which is not in config? -> all done, cleanup!
+	    params => [{
+		pending => { delete => 'memory', }
+	    }],
+	    map_expect_to_param_id => 0,
+	    expect => { pending => {} },
+	},
+	{ # should do nothing, delete is pending and memory is set after all
+	    params => [{
+		memory => 128,
+		pending => { delete => 'memory', }
+	    }],
+	    map_expect_to_param_id => 0,
+	    expect => {
+		memory => 128,
+		pending => { delete => 'memory', }
+	    },
+	},
+	{ # the pending change is the same as the currents config value, cleanup pending!
+	    params => [{
+		memory => 128,
+		pending => { memory => 128, }
+	    }],
+	    map_expect_to_param_id => 0,
+	    expect => {
+		memory => 128,
+		pending => {}
+	    },
 	},
     ]
 },
