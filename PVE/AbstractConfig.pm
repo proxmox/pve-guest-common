@@ -119,14 +119,20 @@ sub add_to_pending_delete {
 sub remove_from_pending_delete {
     my ($class, $conf, $key) = @_;
 
-    my $pending_delete_hash = $class->parse_pending_delete($conf->{pending}->{delete});
+    my $pending = $conf->{pending};
+    my $pending_delete_hash = $class->parse_pending_delete($pending->{delete});
+
+    return $conf if ! exists $pending_delete_hash->{$key};
+
     delete $pending_delete_hash->{$key};
 
     if (%$pending_delete_hash) {
-	$conf->{pending}->{delete} = $class->print_pending_delete($pending_delete_hash);
+	$pending->{delete} = $class->print_pending_delete($pending_delete_hash);
     } else {
-	delete $conf->{pending}->{delete};
+	delete $pending->{delete};
     }
+
+    return $conf;
 }
 
 sub cleanup_pending {
