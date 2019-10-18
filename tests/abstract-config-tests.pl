@@ -110,17 +110,14 @@ my $tests = [
 	{
 	    params => [ { pending => { delete => 'memory', } }, 'memory' ],
 	    expect => { pending => {} },
-,
 	},
 	{
 	    params => [ { pending => { delete => 'cpu,!memory', } }, 'memory' ],
 	    expect => { pending => { delete => 'cpu' } },
-,
 	},
 	{
 	    params => [ { pending => { delete => 'cpu', } }, 'memory' ],
 	    expect => { pending => { delete => 'cpu' } },
-,
 	},
     ]
 },
