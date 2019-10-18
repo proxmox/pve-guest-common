@@ -99,7 +99,7 @@ sub print_pending_delete {
 	return $key;
     };
 
-    join (',', map { $render_key->($_) } keys %$delete_hash);
+    join (',', map { $render_key->($_) } sort keys %$delete_hash);
 }
 
 sub add_to_pending_delete {

@@ -68,7 +68,7 @@ my $tests = [
 		cpu => { force => 0, },
 		memory => { force => 0, },
 	    }],
-	    expect => "memory,cpu",
+	    expect => "cpu,memory",
 	},
 	{
 	    params => [{ # we have no double negation, only simple stuff
