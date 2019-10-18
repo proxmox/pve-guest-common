@@ -105,10 +105,15 @@ sub print_pending_delete {
 sub add_to_pending_delete {
     my ($class, $conf, $key, $force) = @_;
 
-    delete $conf->{pending}->{$key};
-    my $pending_delete_hash = $class->parse_pending_delete($conf->{pending}->{delete});
-    $pending_delete_hash->{$key}->{force} = $force;
-    $conf->{pending}->{delete} = $class->print_pending_delete($pending_delete_hash);
+    $conf->{pending} //= {};
+    my $pending = $conf->{pending};
+    my $pending_delete_hash = $class->parse_pending_delete($pending->{delete});
+
+    $pending_delete_hash->{$key} = { force => $force };
+
+    $pending->{delete} = $class->print_pending_delete($pending_delete_hash);
+
+    return $conf;
 }
 
 sub remove_from_pending_delete {
