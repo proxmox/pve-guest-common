@@ -43,6 +43,10 @@ install: PVE
 	install -m 0644 PVE/VZDump/Plugin.pm ${PERL5DIR}/PVE/VZDump/
 	install -m 0644 PVE/VZDump/Common.pm ${PERL5DIR}/PVE/VZDump/
 
+.PHONY: check
+check:
+	$(MAKE) -C tests check
+
 .PHONY: upload
 upload: ${DEB}
 	tar cf - ${DEB} | ssh repoman@repo.proxmox.com -- upload --product pve --dist buster
