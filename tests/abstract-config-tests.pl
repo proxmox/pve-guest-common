@@ -101,6 +101,26 @@ my $tests = [
 	},
     ]
 },
+{
+    method => 'remove_from_pending_delete', # $conf, $key
+    subtests => [
+	{ # simple test addition to of a pending deletion to the empty config
+	    params => [ { pending => { delete => 'memory', } }, 'memory' ],
+	    expect => { pending => {} },
+,
+	},
+	{
+	    params => [ { pending => { delete => 'cpu,!memory', } }, 'memory' ],
+	    expect => { pending => { delete => 'cpu' } },
+,
+	},
+	{
+	    params => [ { pending => { delete => 'cpu', } }, 'memory' ],
+	    expect => { pending => { delete => 'cpu' } },
+,
+	},
+    ]
+},
 ]; # tests definition end
 
 
