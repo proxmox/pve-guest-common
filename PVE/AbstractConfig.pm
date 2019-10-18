@@ -92,7 +92,14 @@ sub parse_pending_delete {
 
 sub print_pending_delete {
     my ($class, $delete_hash) = @_;
-    join ",", map { ( $delete_hash->{$_}->{force} ? '!' : '' ) . $_ } keys %$delete_hash;
+
+    my $render_key = sub {
+	my $key = shift;
+	$key = "!$key" if $delete_hash->{$key}->{force};
+	return $key;
+    };
+
+    join (',', map { $render_key->($_) } keys %$delete_hash);
 }
 
 sub add_to_pending_delete {
