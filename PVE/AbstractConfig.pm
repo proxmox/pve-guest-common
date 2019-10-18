@@ -138,30 +138,31 @@ sub remove_from_pending_delete {
 sub cleanup_pending {
     my ($class, $conf) = @_;
 
+    my $pending = $conf->{pending};
     # remove pending changes when nothing changed
     my $changes;
     foreach my $opt (keys %{$conf->{pending}}) {
 	next if $opt eq 'delete'; # just to be sure
-	if (defined($conf->{$opt}) && ($conf->{pending}->{$opt} eq  $conf->{$opt})) {
+	if (defined($conf->{$opt}) && ($pending->{$opt} eq  $conf->{$opt})) {
 	    $changes = 1;
-	    delete $conf->{pending}->{$opt};
+	    delete $pending->{$opt};
 	}
     }
 
-    my $current_delete_hash = $class->parse_pending_delete($conf->{pending}->{delete});
+    my $current_delete_hash = $class->parse_pending_delete($pending->{delete});
     my $pending_delete_hash = {};
-    while (my ($opt, $force) = each %$current_delete_hash) {
+    for my $opt (keys %$current_delete_hash) {
 	if (defined($conf->{$opt})) {
-	    $pending_delete_hash->{$opt} = $force;
+	    $pending_delete_hash->{$opt} = $current_delete_hash->{$opt};
 	} else {
 	    $changes = 1;
 	}
     }
 
     if (%$pending_delete_hash) {
-	$conf->{pending}->{delete} = $class->print_pending_delete($pending_delete_hash);
+	$pending->{delete} = $class->print_pending_delete($pending_delete_hash);
     } else {
-	delete $conf->{pending}->{delete};
+	delete $pending->{delete};
     }
 
     return $changes;
