@@ -72,10 +72,22 @@ sub write_config {
 
 sub parse_pending_delete {
     my ($class, $data) = @_;
-    $data ||= '';
+
+    return {} if !$data;
+
     $data =~ s/[,;]/ /g;
     $data =~ s/^\s+//;
-    return { map { /^(!?)(.*)$/ && ($2, { 'force' => $1 eq '!' ? 1 : 0 } ) } ($data =~ /\S+/g) };
+
+    my $pending_deletions = {};
+    for my $entry (split(/\s+/, $data)) {
+	my ($force, $key) = $entry =~ /^(!?)(.*)$/;
+
+	$pending_deletions->{$key} = {
+	    force => $force ? 1 : 0,
+	};
+    }
+
+    return $pending_deletions;
 }
 
 sub print_pending_delete {
