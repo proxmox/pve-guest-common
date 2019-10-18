@@ -95,6 +95,15 @@ sub create_and_lock_config {
     });
 }
 
+# destroys configuration, only applyable for configs owned by the callers node.
+# dies if removal fails, e.g., when inquorate.
+sub destroy_config {
+    my ($class, $vmid) = @_;
+
+    my $config_fn = $class->config_file($vmid, $nodename);
+    unlink $config_fn or die "failed to remove config file: $!\n";
+}
+
 # Lock config file using flock, run $code with @param, unlock config file.
 # $timeout is the maximum time to aquire the flock
 # $shared eq 1 creates a non-exclusive ("read") flock
