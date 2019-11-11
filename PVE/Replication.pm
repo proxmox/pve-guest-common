@@ -11,6 +11,7 @@ use PVE::INotify;
 use PVE::ProcFSTools;
 use PVE::Tools;
 use PVE::Cluster;
+use PVE::DataCenterConfig;
 use PVE::Storage;
 use PVE::GuestHelpers;
 use PVE::ReplicationConfig;

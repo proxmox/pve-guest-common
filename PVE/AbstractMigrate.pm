@@ -6,6 +6,7 @@ use POSIX qw(strftime);
 use JSON;
 use PVE::Tools;
 use PVE::Cluster;
+use PVE::DataCenterConfig;
 use PVE::ReplicationState;
 
 my $msg2text = sub {
