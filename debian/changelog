@@ -1,3 +1,9 @@
+libpve-guest-common-perl (3.0-3) pve; urgency=medium
+
+  * update use statements and dependencies following pve-cluster refactoring
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 18 Nov 2019 12:01:55 +0100
+
 libpve-guest-common-perl (3.0-2) pve; urgency=medium
 
   * add various config helpers and interfaces for pending changes, backup jobs,
