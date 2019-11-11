@@ -16,6 +16,7 @@ use PVE::Storage;
 use PVE::GuestHelpers;
 use PVE::ReplicationConfig;
 use PVE::ReplicationState;
+use PVE::SSHInfo;
 
 
 # regression tests should overwrite this
@@ -80,7 +81,7 @@ sub find_common_replication_snapshot {
 sub remote_prepare_local_job {
     my ($ssh_info, $jobid, $vmid, $volumes, $storeid_list, $last_sync, $parent_snapname, $force, $logfunc) = @_;
 
-    my $ssh_cmd = PVE::Cluster::ssh_info_to_command($ssh_info);
+    my $ssh_cmd = PVE::SSHInfo::ssh_info_to_command($ssh_info);
     my $cmd = [@$ssh_cmd, '--', 'pvesr', 'prepare-local-job', $jobid];
     push @$cmd, '--scan', join(',', @$storeid_list) if scalar(@$storeid_list);
     push @$cmd, @$volumes if scalar(@$volumes);
@@ -114,7 +115,7 @@ sub remote_prepare_local_job {
 sub remote_finalize_local_job {
     my ($ssh_info, $jobid, $vmid, $volumes, $last_sync, $logfunc) = @_;
 
-    my $ssh_cmd = PVE::Cluster::ssh_info_to_command($ssh_info);
+    my $ssh_cmd = PVE::SSHInfo::ssh_info_to_command($ssh_info);
     my $cmd = [@$ssh_cmd, '--', 'pvesr', 'finalize-local-job', $jobid,
 	       @$volumes, '--last_sync', $last_sync];
 
@@ -238,7 +239,7 @@ sub replicate {
 
 	    my %hash = map { $_ => 1 } @store_list;
 
-	    my $ssh_info = PVE::Cluster::get_ssh_info($jobcfg->{target});
+	    my $ssh_info = PVE::SSHInfo::get_ssh_info($jobcfg->{target});
 	    remote_prepare_local_job($ssh_info, $jobid, $vmid, [], [ keys %hash ], 1, undef, 1, $logfunc);
 
 	}
@@ -251,7 +252,7 @@ sub replicate {
 	return undef;
     }
 
-    my $ssh_info = PVE::Cluster::get_ssh_info($jobcfg->{target}, $migration_network);
+    my $ssh_info = PVE::SSHInfo::get_ssh_info($jobcfg->{target}, $migration_network);
 
     my $parent_snapname = $conf->{parent};
 

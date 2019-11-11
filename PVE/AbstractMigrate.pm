@@ -8,6 +8,7 @@ use PVE::Tools;
 use PVE::Cluster;
 use PVE::DataCenterConfig;
 use PVE::ReplicationState;
+use PVE::SSHInfo;
 
 my $msg2text = sub {
     my ($level, $msg) = @_;
@@ -120,7 +121,7 @@ sub migrate {
     if (!defined($migration_network)) {
 	$migration_network = $dc_conf->{migration}->{network};
     }
-    my $ssh_info = PVE::Cluster::get_ssh_info($node, $migration_network);
+    my $ssh_info = PVE::SSHInfo::get_ssh_info($node, $migration_network);
     $nodeip = $ssh_info->{ip};
 
     my $migration_type = 'secure';
@@ -138,7 +139,7 @@ sub migrate {
 	node => $node,
 	ssh_info => $ssh_info,
 	nodeip => $nodeip,
-	rem_ssh => PVE::Cluster::ssh_info_to_command($ssh_info)
+	rem_ssh => PVE::SSHInfo::ssh_info_to_command($ssh_info)
     };
 
     $self = bless $self, $class;
