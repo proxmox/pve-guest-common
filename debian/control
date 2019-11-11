@@ -4,6 +4,9 @@ Priority: optional
 Maintainer: Proxmox Support Team <support@proxmox.com>
 Build-Depends: debhelper (>= 10~),
                libpve-cluster-perl,
+               libpve-common-perl,
+               libpve-storage-perl,
+               pve-cluster,
 Standards-Version: 3.9.8
 Homepage: http://www.proxmox.com
 
