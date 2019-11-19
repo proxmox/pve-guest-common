@@ -7,6 +7,7 @@ use PVE::Tools;
 use PVE::Storage;
 
 use POSIX qw(strftime);
+use Scalar::Util qw(weaken);
 
 # We use a separate lock to block migration while a replication job
 # is running.
@@ -87,8 +88,8 @@ sub print_snapshot_tree {
     };
 
     # recursion function for displaying the tree
-    my $snapshottree;
-    $snapshottree = sub {
+    my $snapshottree_weak;
+    $snapshottree_weak = sub {
 	my ($prefix, $root, $snapshots) = @_;
 	my $e = $snapshots->{$root};
 
@@ -106,10 +107,12 @@ sub print_snapshot_tree {
 	if ($e->{children}) {
 	    $prefix = "    $prefix";
 	    foreach my $child (sort $snaptimesort @{$e->{children}}) {
-		$snapshottree->($prefix, $child, $snapshots);
+		$snapshottree_weak->($prefix, $child, $snapshots);
 	    }
 	}
     };
+    my $snapshottree = $snapshottree_weak;
+    weaken($snapshottree_weak);
 
     foreach my $root (sort $snaptimesort @roots) {
 	$snapshottree->('`->', $root, $snapshots);
