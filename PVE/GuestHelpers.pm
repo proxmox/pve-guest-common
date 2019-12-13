@@ -36,7 +36,7 @@ sub check_hookscript {
     die "'$volid' is not in the snippets directory\n"
 	if $type ne 'snippets';
 
-    die "script '$volid' does not exists\n"
+    die "script '$volid' does not exist\n"
 	if ! -f $path;
 
     die "script '$volid' is not executable\n"
