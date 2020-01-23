@@ -223,14 +223,14 @@ sub lock_config_full {
 }
 
 sub create_and_lock_config {
-    my ($class, $vmid, $allow_existing) = @_;
+    my ($class, $vmid, $allow_existing, $lock) = @_;
 
     $class->lock_config_full($vmid, 5, sub {
 	PVE::Cluster::check_vmid_unused($vmid, $allow_existing);
 
 	my $conf = eval { $class->load_config($vmid) } || {};
 	$class->check_lock($conf);
-	$conf->{lock} = 'create';
+	$conf->{lock} = $lock // 'create';
 	$class->write_config($vmid, $conf);
     });
 }
