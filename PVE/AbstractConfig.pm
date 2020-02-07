@@ -143,7 +143,7 @@ sub cleanup_pending {
     my $changes;
     foreach my $opt (keys %{$conf->{pending}}) {
 	next if $opt eq 'delete'; # just to be sure
-	if (defined($conf->{$opt}) && ($pending->{$opt} eq  $conf->{$opt})) {
+	if (defined($conf->{$opt}) && ($pending->{$opt} eq $conf->{$opt})) {
 	    $changes = 1;
 	    delete $pending->{$opt};
 	}
