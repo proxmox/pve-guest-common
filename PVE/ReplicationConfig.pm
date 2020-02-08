@@ -29,7 +29,7 @@ sub parse_replication_job_id {
 
     if ($id =~ m/^(\d+)-(\d+)$/) {
 	my ($guest, $jobnum) = (int($1), int($2));
-	die "$msg (guest IDs < 100 are reseved)\n" if $guest < 100;
+	die "$msg (guest IDs < 100 are reserved)\n" if $guest < 100;
 	my $parsed_id = "$guest-$jobnum"; # use parsed integers
 	return wantarray ? ($guest, $jobnum, $parsed_id) :  $parsed_id;
     }
@@ -73,7 +73,7 @@ my $defaultData = {
 	    optional => 1,
 	},
 	schedule => {
-	    description => "Storage replication schedule. The format is a subset of `systemd` calender events.",
+	    description => "Storage replication schedule. The format is a subset of `systemd` calendar events.",
 	    type => 'string', format => 'pve-calendar-event',
 	    maxLength => 128,
 	    default => '*/15',

@@ -13,13 +13,13 @@ use PVE::AbstractConfig;
 
 # tests for different top level method implementations of AbstractConfig
 # tests need to specify the method, the parameter and expected result
-# for neatly doing more tests per single method you can specifiy a subtests
+# for neatly doing more tests per single method you can specify a subtests
 # array, which then only has params and expected result
 # sometimes the return value is less interesting to check than a parameter
 # reference, so one can use "map_expect_to_param_id" to tell the test system to
 # use that as expected result.
 
-# note that the indentaion level below is "wrong" by design
+# note that the indentation level below is "wrong" by design
 my $tests = [
 {
     method => 'parse_pending_delete',
@@ -171,7 +171,7 @@ sub do_test($$;$) {
     if (defined(my $param_id = $test->{map_expect_to_param_id})) {
 	# it's a /cool/ hack, sometimes we have the interesting result in
 	# "call-by-reference" param, and the return value is just some "I did
-	# someting" or plain undef value. So allow to map the result to one of
+	# something" or plain undef value. So allow to map the result to one of
 	# the parameters
 	$res = $params->[$param_id];
     }

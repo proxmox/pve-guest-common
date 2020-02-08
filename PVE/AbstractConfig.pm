@@ -209,7 +209,7 @@ sub load_current_config {
 
 
 # Lock config file using flock, run $code with @param, unlock config file.
-# $timeout is the maximum time to aquire the flock
+# $timeout is the maximum time to acquire the flock
 sub lock_config_full {
     my ($class, $vmid, $timeout, $code, @param) = @_;
 
@@ -235,7 +235,7 @@ sub create_and_lock_config {
     });
 }
 
-# destroys configuration, only applyable for configs owned by the callers node.
+# destroys configuration, only applicable for configs owned by the callers node.
 # dies if removal fails, e.g., when inquorate.
 sub destroy_config {
     my ($class, $vmid) = @_;
@@ -245,7 +245,7 @@ sub destroy_config {
 }
 
 # Lock config file using flock, run $code with @param, unlock config file.
-# $timeout is the maximum time to aquire the flock
+# $timeout is the maximum time to acquire the flock
 # $shared eq 1 creates a non-exclusive ("read") flock
 sub lock_config_mode {
     my ($class, $vmid, $timeout, $shared, $code, @param) = @_;
@@ -350,7 +350,7 @@ sub is_template {
     return 1 if defined $conf->{template} && $conf->{template} == 1;
 }
 
-# Checks whether $feature is availabe for the referenced volumes in $conf.
+# Checks whether $feature is available for the referenced volumes in $conf.
 # Note: depending on the parameters, some volumes may be skipped!
 sub has_feature {
     my ($class, $feature, $conf, $storecfg, $snapname, $running, $backup_only) = @_;

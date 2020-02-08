@@ -357,7 +357,7 @@ my $run_replication_nolock = sub {
 
     my $volumes;
 
-    # we normaly write errors into the state file,
+    # we normally write errors into the state file,
     # but we also catch unexpected errors and log them to syslog
     # (for examply when there are problems writing the state file)
 
