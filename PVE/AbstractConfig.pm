@@ -168,6 +168,49 @@ sub cleanup_pending {
     return $changes;
 }
 
+sub get_partial_fast_plug_option {
+    my ($class) = @_;
+
+    die "abstract method - implement me ";
+}
+
+sub partial_fast_plug {
+    my ($class, $conf, $opt) = @_;
+
+    my $partial_fast_plug_option = $class->get_partial_fast_plug_option();
+    my $format = $partial_fast_plug_option->{$opt}->{fmt};
+    my $fast_pluggable = $partial_fast_plug_option->{$opt}->{properties};
+
+    my $configured = {};
+    if (exists($conf->{$opt})) {
+	$configured = PVE::JSONSchema::parse_property_string($format, $conf->{$opt});
+    }
+    my $pending = PVE::JSONSchema::parse_property_string($format, $conf->{pending}->{$opt});
+
+    my $changes = 0;
+
+    # merge configured and pending opts to iterate
+    my @all_keys = keys %{{ %$pending, %$configured }};
+
+    foreach my $subopt (@all_keys) {
+	my $type = $format->{$subopt}->{type};
+	if (PVE::GuestHelpers::typesafe_ne($configured->{$subopt}, $pending->{$subopt}, $type)) {
+	    if ($fast_pluggable->{$subopt}) {
+		$configured->{$subopt} = $pending->{$subopt};
+		$changes = 1
+	    }
+	}
+    }
+
+    # if there're no keys in $configured (after merge) there shouldn't be anything to change
+    if (keys %$configured) {
+	$conf->{$opt} = PVE::JSONSchema::print_property_string($configured, $format);
+    }
+
+    return $changes;
+}
+
+
 sub load_snapshot_config {
     my ($class, $vmid, $snapname) = @_;
 
