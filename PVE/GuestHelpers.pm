@@ -9,10 +9,63 @@ use PVE::Storage;
 use POSIX qw(strftime);
 use Scalar::Util qw(weaken);
 
+our @EXPORT_OK = qw(safe_string_ne safe_boolean_ne safe_num_ne typesafe_ne);
+
 # We use a separate lock to block migration while a replication job
 # is running.
 
 our $lockdir = '/var/lock/pve-manager';
+
+# safe variable comparison functions
+
+sub safe_num_ne {
+    my ($a, $b) = @_;
+
+    return 0 if !defined($a) && !defined($b);
+    return 1 if !defined($a);
+    return 1 if !defined($b);
+
+    return $a != $b;
+}
+
+sub safe_string_ne  {
+    my ($a, $b) = @_;
+
+    return 0 if !defined($a) && !defined($b);
+    return 1 if !defined($a);
+    return 1 if !defined($b);
+
+    return $a ne $b;
+}
+
+sub safe_boolean_ne {
+    my ($a, $b) = @_;
+
+    # we don't check if value is defined, since undefined
+    # is false (so it's a valid boolean)
+
+    # negate both values to normalize and compare
+    return !$a != !$b;
+}
+
+sub typesafe_ne {
+    my ($a, $b, $type) = @_;
+
+    return 0 if !defined($a) && !defined($b);
+    return 1 if !defined($a);
+    return 1 if !defined($b);
+
+    if ($type eq 'string') {
+	return safe_string_ne($a, $b);
+    } elsif ($type eq 'number' || $type eq 'integer') {
+	return safe_num_ne($a, $b);
+    } elsif ($type eq 'boolean') {
+	return safe_boolean_ne($a, $b);
+    }
+
+    die "internal error: can't compare $a and $b with type $type";
+}
+
 
 sub guest_migration_lock {
     my ($vmid, $timeout, $func, @param) = @_;
