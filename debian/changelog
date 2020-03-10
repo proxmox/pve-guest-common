@@ -1,3 +1,15 @@
+libpve-guest-common-perl (3.0-4) pve; urgency=medium
+
+  * abstractconfig: add partial_fast_plug
+
+  * config trait: allow to pass arbitrary lock to create_and_lock_config
+
+  * abstractconfig: add prototype for get_backup_volumes
+
+  * avoid cyclic reference in closure
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 10 Mar 2020 14:03:43 +0100
+
 libpve-guest-common-perl (3.0-3) pve; urgency=medium
 
   * update use statements and dependencies following pve-cluster refactoring
