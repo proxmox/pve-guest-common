@@ -8,6 +8,7 @@ use PVE::INotify;
 use PVE::Cluster;
 use PVE::Storage;
 
+use PVE::GuestHelpers qw(typesafe_ne);
 use PVE::ReplicationConfig;
 use PVE::Replication;
 
@@ -196,7 +197,7 @@ sub partial_fast_plug {
 
     foreach my $subopt (@all_keys) {
 	my $type = $format->{$subopt}->{type};
-	if (PVE::GuestHelpers::typesafe_ne($configured->{$subopt}, $pending->{$subopt}, $type)) {
+	if (typesafe_ne($configured->{$subopt}, $pending->{$subopt}, $type)) {
 	    if ($fast_pluggable->{$subopt}) {
 		$configured->{$subopt} = $pending->{$subopt};
 		$changes = 1
