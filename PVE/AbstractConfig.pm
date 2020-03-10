@@ -178,6 +178,8 @@ sub partial_fast_plug {
     my ($class, $conf, $opt) = @_;
 
     my $partial_fast_plug_option = $class->get_partial_fast_plug_option();
+    return 0 if !$partial_fast_plug_option->{$opt};
+
     my $format = $partial_fast_plug_option->{$opt}->{fmt};
     my $fast_pluggable = $partial_fast_plug_option->{$opt}->{properties};
 
