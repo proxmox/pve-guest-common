@@ -9,6 +9,8 @@ use PVE::Storage;
 use POSIX qw(strftime);
 use Scalar::Util qw(weaken);
 
+use base qw(Exporter);
+
 our @EXPORT_OK = qw(safe_string_ne safe_boolean_ne safe_num_ne typesafe_ne);
 
 # We use a separate lock to block migration while a replication job
