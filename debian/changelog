@@ -1,4 +1,4 @@
-libpve-guest-common-perl (3.0-4) pve; urgency=medium
+libpve-guest-common-perl (3.0-5) pve; urgency=medium
 
   * abstractconfig: add partial_fast_plug
 
@@ -8,7 +8,7 @@ libpve-guest-common-perl (3.0-4) pve; urgency=medium
 
   * avoid cyclic reference in closure
 
- -- Proxmox Support Team <support@proxmox.com>  Tue, 10 Mar 2020 14:03:43 +0100
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 12 Mar 2020 11:10:02 +0100
 
 libpve-guest-common-perl (3.0-3) pve; urgency=medium
 
