@@ -432,6 +432,40 @@ sub foreach_unused_volume {
     }
 }
 
+# Iterate over all configured volumes, calling $func for each key/value pair
+# with additional parameters @param.
+# By default, unused volumes and specials like vmstate are excluded.
+# Options: reverse         - reverses the order for the iteration
+#	   include_unused  - also iterate over unused volumes
+#	   extra_keys      - an array of extra keys to use for the iteration
+sub foreach_volume_full {
+    my ($class, $conf, $opts, $func, @param) = @_;
+
+    die "'reverse' iteration only supported for default keys\n"
+	if $opts->{reverse} && ($opts->{extra_keys} || $opts->{include_unused});
+
+    my @keys = $class->valid_volume_keys($opts->{reverse});
+    push @keys, @{$opts->{extra_keys}} if $opts->{extra_keys};
+
+    foreach my $key (@keys) {
+	my $volume_string = $conf->{$key};
+	next if !defined($volume_string);
+
+	my $volume = $class->parse_volume($key, $volume_string, 1);
+	next if !defined($volume);
+
+	$func->($key, $volume, @param);
+    }
+
+    $class->foreach_unused_volume($conf, $func, @param) if $opts->{include_unused};
+}
+
+sub foreach_volume {
+    my ($class, $conf, $func, @param) = @_;
+
+    return $class->foreach_volume_full($conf, undef, $func, @param);
+}
+
 # Returns whether the template parameter is set in $conf.
 sub is_template {
     my ($class, $conf) = @_;
@@ -583,13 +617,6 @@ sub __snapshot_rollback_get_unused {
     die "abstract method - implement me\n";
 }
 
-# Iterate over all configured volumes, calling $func for each key/value pair.
-sub __snapshot_foreach_volume {
-    my ($class, $conf, $func) = @_;
-
-    die "abstract method - implement me\n";
-}
-
 # Copy the current config $source to the snapshot config $dest
 sub __snapshot_copy_config {
     my ($class, $source, $dest) = @_;
@@ -722,7 +749,7 @@ sub snapshot_create {
 
 	$class->__snapshot_create_vol_snapshots_hook($vmid, $snap, $running, "before");
 
-	$class->__snapshot_foreach_volume($snap, sub {
+	$class->foreach_volume($snap, sub {
 	    my ($vs, $volume) = @_;
 
 	    $class->__snapshot_create_vol_snapshot($vmid, $vs, $volume, $snapname);
@@ -814,7 +841,7 @@ sub snapshot_delete {
     };
 
     # now remove all volume snapshots
-    $class->__snapshot_foreach_volume($snap, sub {
+    $class->foreach_volume($snap, sub {
 	my ($vs, $volume) = @_;
 
 	return if $snapname eq 'vzdump' && $vs ne 'rootfs' && !$volume->{backup};
@@ -888,7 +915,7 @@ sub snapshot_rollback {
     
     my $snap = &$get_snapshot_config();
 
-    $class->__snapshot_foreach_volume($snap, sub {
+    $class->foreach_volume($snap, sub {
 	my ($vs, $volume) = @_;
 
 	$class->__snapshot_rollback_vol_possible($volume, $snapname);
@@ -941,7 +968,7 @@ sub snapshot_rollback {
 
     $class->lock_config($vmid, $updatefn);
 
-    $class->__snapshot_foreach_volume($snap, sub {
+    $class->foreach_volume($snap, sub {
 	my ($vs, $volume) = @_;
 
 	$class->__snapshot_rollback_vol_rollback($volume, $snapname);
