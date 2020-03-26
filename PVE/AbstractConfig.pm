@@ -419,6 +419,19 @@ sub add_unused_volume {
     return $key;
 }
 
+# Iterate over all unused volumes, calling $func for each key/value pair
+# with additional parameters @param.
+sub foreach_unused_volume {
+    my ($class, $conf, $func, @param) = @_;
+
+    foreach my $key (keys %{$conf}) {
+	if ($key =~ m/^unused\d+$/) {
+	    my $volume = $class->parse_volume($key, $conf->{$key});
+	    $func->($key, $volume, @param);
+	}
+    }
+}
+
 # Returns whether the template parameter is set in $conf.
 sub is_template {
     my ($class, $conf) = @_;
