@@ -368,6 +368,36 @@ sub check_protection {
     }
 }
 
+# Returns a list of keys where used volumes can be located
+sub valid_volume_keys {
+    my ($class, $reverse) = @_;
+
+    die "implement me - abstract method\n";
+}
+
+# Returns a hash with the information from $volume_string
+# $key is used to determine the format of the string
+sub parse_volume {
+    my ($class, $key, $volume_string, $noerr) = @_;
+
+    die "implement me - abstract method\n";
+}
+
+# Returns a string with the information from $volume
+# $key is used to determine the format of the string
+sub print_volume {
+    my ($class, $key, $volume) = @_;
+
+    die "implement me - abstract method\n";
+}
+
+# The key under which the volume ID is located in volume hashes
+sub volid_key {
+    my ($class) = @_;
+
+    die "implement me - abstract method\n";
+}
+
 # Adds an unused volume to $config, if possible.
 sub add_unused_volume {
     my ($class, $config, $volid) = @_;
