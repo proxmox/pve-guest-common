@@ -466,6 +466,36 @@ sub foreach_volume {
     return $class->foreach_volume_full($conf, undef, $func, @param);
 }
 
+# $volume_map is a hash of 'old_volid' => 'new_volid' pairs.
+# This method replaces 'old_volid' by 'new_volid' throughout
+# the config including snapshots and unused and vmstate volumes
+sub update_volume_ids {
+    my ($class, $conf, $volume_map) = @_;
+
+    my $volid_key = $class->volid_key();
+
+    my $do_replace = sub {
+	my ($key, $volume, $current_section) = @_;
+
+	my $old_volid = $volume->{$volid_key};
+	if (my $new_volid = $volume_map->{$old_volid}) {
+	    $volume->{$volid_key} = $new_volid;
+	    $current_section->{$key} = $class->print_volume($key, $volume);
+	}
+    };
+
+    my $opts = {
+	'include_unused' => 1,
+	'extra_keys' => ['vmstate'],
+    };
+
+    $class->foreach_volume_full($conf, $opts, $do_replace, $conf);
+    foreach my $snap (keys %{$conf->{snapshots}}) {
+	my $snap_conf = $conf->{snapshots}->{$snap};
+	$class->foreach_volume_full($snap_conf, $opts, $do_replace, $snap_conf);
+    }
+}
+
 # Returns whether the template parameter is set in $conf.
 sub is_template {
     my ($class, $conf) = @_;
