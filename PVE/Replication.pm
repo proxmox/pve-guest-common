@@ -185,7 +185,8 @@ sub replicate_volume {
 
     my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid);
 
-    my $ratelimit_bps = int(1000000*$rate) if $rate;
+    my $ratelimit_bps = $rate ? int(1000000 * $rate) : undef;
+
     PVE::Storage::storage_migrate($storecfg, $volid, $ssh_info, $storeid, $volname,
 				  $base_snapshot, $sync_snapname, $ratelimit_bps, $insecure, 1, $logfunc);
 }
