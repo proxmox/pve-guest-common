@@ -187,8 +187,16 @@ sub replicate_volume {
 
     my $ratelimit_bps = $rate ? int(1000000 * $rate) : undef;
 
-    PVE::Storage::storage_migrate($storecfg, $volid, $ssh_info, $storeid, $volname,
-				  $base_snapshot, $sync_snapname, $ratelimit_bps, $insecure, 1, $logfunc);
+    my $opts = {
+	'target_volname' => $volname,
+	'base_snapshot' => $base_snapshot,
+	'snapshot' => $sync_snapname,
+	'ratelimit_bps' => $ratelimit_bps,
+	'insecure' => $insecure,
+	'with_snapshots' => 1,
+    };
+
+    PVE::Storage::storage_migrate($storecfg, $volid, $ssh_info, $storeid, $opts, $logfunc);
 }
 
 
