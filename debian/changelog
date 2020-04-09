@@ -1,3 +1,15 @@
+libpve-guest-common-perl (3.0-7) pve; urgency=medium
+
+  * replication: dont declare variable in post-if scope
+
+  * replication: log rate and transport type
+
+  * Use new storage_migrate interface
+
+  * Add update_volume_ids
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 9 Apr 2020 09:40:21 +0200
+
 libpve-guest-common-perl (3.0-6) pve; urgency=medium
 
   * Add interfaces for volume-related helpers
