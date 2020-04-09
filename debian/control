@@ -14,7 +14,7 @@ Package: libpve-guest-common-perl
 Architecture: all
 Depends: libpve-cluster-perl,
          libpve-common-perl (>= 4.0-89),
-         libpve-storage-perl (>= 5.0-37),
+         libpve-storage-perl (>= 6.1-6),
          pve-cluster,
          ${misc:Depends},
          ${perl:Depends},
