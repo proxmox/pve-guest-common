@@ -88,7 +88,7 @@ my $confdesc = {
 	type => 'string',
 	description => "Compress dump file.",
 	optional => 1,
-	enum => ['0', '1', 'gzip', 'lzo'],
+	enum => ['0', '1', 'gzip', 'lzo', 'zstd'],
 	default => '0',
     },
     pigz=> {
@@ -97,6 +97,13 @@ my $confdesc = {
 	    " N=1 uses half of cores, N>1 uses N as thread count.",
 	optional => 1,
 	default => 0,
+    },
+    zstd => {
+	type => "integer",
+	description => "Zstd threads. N=0 uses half of the available cores,".
+	    " N>0 uses N as thread count.",
+	optional => 1,
+	default => 1,
     },
     quiet => {
 	type => 'boolean',
