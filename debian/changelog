@@ -1,3 +1,9 @@
+libpve-guest-common-perl (3.0-8) pve; urgency=medium
+
+  * Fix: #2124 add zstd support
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 4 May 2020 14:10:56 +0200
+
 libpve-guest-common-perl (3.0-7) pve; urgency=medium
 
   * replication: dont declare variable in post-if scope
