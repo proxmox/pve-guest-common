@@ -292,7 +292,13 @@ sub lock_config_mode {
 
     my $filename = $class->config_file_lock($vmid);
 
-    my $res = lock_file_full($filename, $timeout, $shared, $code, @param);
+    # make sure configuration file is up-to-date
+    my $realcode = sub {
+	PVE::Cluster::cfs_update();
+	$code->(@param);
+    };
+
+    my $res = lock_file_full($filename, $timeout, $shared, $realcode, @param);
 
     die $@ if $@;
 
