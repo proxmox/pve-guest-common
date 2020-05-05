@@ -259,13 +259,7 @@ sub load_current_config {
 sub lock_config_full {
     my ($class, $vmid, $timeout, $code, @param) = @_;
 
-    my $filename = $class->config_file_lock($vmid);
-
-    my $res = lock_file($filename, $timeout, $code, @param);
-
-    die $@ if $@;
-
-    return $res;
+    return $class->lock_config_mode($vmid, $timeout, 0, $code, @param);
 }
 
 sub create_and_lock_config {
