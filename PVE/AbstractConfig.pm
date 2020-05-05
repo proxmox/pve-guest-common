@@ -948,7 +948,7 @@ sub snapshot_rollback {
 
 		# remove all local replication snapshots (jobid => undef)
 		my $logfunc = sub { my $line = shift; chomp $line; print "$line\n"; };
-		PVE::Replication::prepare($storecfg, $sorted_volids, undef, 0, undef, $logfunc);
+		PVE::Replication::prepare($storecfg, $sorted_volids, undef, 1, undef, $logfunc);
 	    }
 
 	    $class->foreach_volume($snap, sub {
