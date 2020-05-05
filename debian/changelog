@@ -1,3 +1,17 @@
+libpve-guest-common-perl (3.0-9) pve; urgency=medium
+
+  * fix #2682: make sure configuration file is up-to-date for lock_config-variants
+
+  * snapshot_rollback: flock earlier
+
+  * snapshot_rollback: make sure newer replication snapshots are deleted
+
+  * snapshot_delete: check for concurrent modifications at each step
+
+  * lock_config: rename lock_config_mode -> lock_config_shared
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 5 May 2020 11:19:26 +0200
+
 libpve-guest-common-perl (3.0-8) pve; urgency=medium
 
   * Fix: #2124 add zstd support
