@@ -919,9 +919,10 @@ sub snapshot_rollback {
 
     my $storecfg = PVE::Storage::config();
 
-    my $conf = $class->load_config($vmid);
+    my $data = {};
 
     my $get_snapshot_config = sub {
+	my ($conf) = @_;
 
 	die "you can't rollback if vm is a template\n" if $class->is_template($conf);
 
@@ -932,32 +933,30 @@ sub snapshot_rollback {
 	return $res;
     };
 
-    my $repl_conf = PVE::ReplicationConfig->new();
-    if ($repl_conf->check_for_existing_jobs($vmid, 1)) {
-	# remove all replication snapshots
-	my $volumes = $class->get_replicatable_volumes($storecfg, $vmid, $conf, 1);
-	my $sorted_volids = [ sort keys %$volumes ];
-
-	# remove all local replication snapshots (jobid => undef)
-	my $logfunc = sub { my $line = shift; chomp $line; print "$line\n"; };
-	PVE::Replication::prepare($storecfg, $sorted_volids, undef, 0, undef, $logfunc);
-    }
-    
-    my $snap = &$get_snapshot_config();
-
-    $class->foreach_volume($snap, sub {
-	my ($vs, $volume) = @_;
-
-	$class->__snapshot_rollback_vol_possible($volume, $snapname);
-    });
-
-    my $data = {};
+    my $snap;
 
     my $updatefn = sub {
+	my $conf = $class->load_config($vmid);
+	$snap = $get_snapshot_config->($conf);
 
-	$conf = $class->load_config($vmid);
+	if ($prepare) {
+	    my $repl_conf = PVE::ReplicationConfig->new();
+	    if ($repl_conf->check_for_existing_jobs($vmid, 1)) {
+		# remove all replication snapshots
+		my $volumes = $class->get_replicatable_volumes($storecfg, $vmid, $conf, 1);
+		my $sorted_volids = [ sort keys %$volumes ];
 
-	$snap = &$get_snapshot_config();
+		# remove all local replication snapshots (jobid => undef)
+		my $logfunc = sub { my $line = shift; chomp $line; print "$line\n"; };
+		PVE::Replication::prepare($storecfg, $sorted_volids, undef, 0, undef, $logfunc);
+	    }
+
+	    $class->foreach_volume($snap, sub {
+	       my ($vs, $volume) = @_;
+
+	       $class->__snapshot_rollback_vol_possible($volume, $snapname);
+	    });
+        }
 
 	die "unable to rollback to incomplete snapshot (snapstate = $snap->{snapstate})\n"
 	    if $snap->{snapstate};
