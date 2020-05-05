@@ -823,6 +823,15 @@ sub snapshot_delete {
     $class->set_lock($vmid, 'snapshot-delete')
 	if (!$drivehash); # doesn't already have a 'snapshot' lock
 
+    my $expected_lock = $drivehash ? 'snapshot' : 'snapshot-delete';
+
+    my $ensure_correct_lock = sub {
+	my ($conf) = @_;
+
+	die "encountered invalid lock, expected '$expected_lock'\n"
+	    if !$class->has_lock($conf, $expected_lock);
+    };
+
     my $unlink_parent = sub {
 	my ($confref, $new_parent) = @_;
 
@@ -839,6 +848,8 @@ sub snapshot_delete {
 	my ($drive) = @_;
 
 	my $conf = $class->load_config($vmid);
+	$ensure_correct_lock->($conf);
+
 	$snap = $conf->{snapshots}->{$snapname};
 	die "snapshot '$snapname' does not exist\n" if !defined($snap);
 
@@ -850,6 +861,7 @@ sub snapshot_delete {
     #prepare
     $class->lock_config($vmid, sub {
 	my $conf = $class->load_config($vmid);
+	$ensure_correct_lock->($conf);
 
 	die "you can't delete a snapshot if vm is a template\n"
 	    if $class->is_template($conf);
@@ -890,6 +902,8 @@ sub snapshot_delete {
     # now cleanup config
     $class->lock_config($vmid, sub {
 	my $conf = $class->load_config($vmid);
+	$ensure_correct_lock->($conf);
+
 	$snap = $conf->{snapshots}->{$snapname};
 	die "snapshot '$snapname' does not exist\n" if !defined($snap);
 
