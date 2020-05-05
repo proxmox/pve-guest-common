@@ -21,7 +21,7 @@ Depends: libpve-cluster-perl,
 Breaks: libpve-common-perl (<< 4.0-89),
         pve-container (<< 3.0-24),
         pve-manager (<< 6.0-10),
-        qemu-server (<< 6.1-12),
+        qemu-server (<< 6.1-18),
 Replaces: libpve-common-perl (<< 4.0-89),
           pve-manager (<< 4.4-10),
 Description: Proxmox VE common guest-related modules
