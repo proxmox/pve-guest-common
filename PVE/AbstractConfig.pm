@@ -253,15 +253,6 @@ sub load_current_config {
     return $conf;
 }
 
-
-# Lock config file using flock, run $code with @param, unlock config file.
-# $timeout is the maximum time to acquire the flock
-sub lock_config_full {
-    my ($class, $vmid, $timeout, $code, @param) = @_;
-
-    return $class->lock_config_mode($vmid, $timeout, 0, $code, @param);
-}
-
 sub create_and_lock_config {
     my ($class, $vmid, $allow_existing, $lock) = @_;
 
@@ -284,26 +275,40 @@ sub destroy_config {
     unlink $config_fn or die "failed to remove config file: $!\n";
 }
 
-# Lock config file using flock, run $code with @param, unlock config file.
-# $timeout is the maximum time to acquire the flock
-# $shared eq 1 creates a non-exclusive ("read") flock
-sub lock_config_mode {
-    my ($class, $vmid, $timeout, $shared, $code, @param) = @_;
+my $lock_file_full_wrapper = sub {
+    my ($class, $vmid, $timeout, $shared, $realcode, @param) = @_;
 
     my $filename = $class->config_file_lock($vmid);
 
     # make sure configuration file is up-to-date
-    my $realcode = sub {
+    my $code = sub {
 	PVE::Cluster::cfs_update();
-	$code->(@param);
+	$realcode->(@_);
     };
 
-    my $res = lock_file_full($filename, $timeout, $shared, $realcode, @param);
+    my $res = lock_file_full($filename, $timeout, $shared, $code, @param);
 
     die $@ if $@;
 
     return $res;
+};
+
+# Lock config file using non-exclusive ("read") flock, run $code with @param, unlock config file.
+# $timeout is the maximum time to acquire the flock
+sub lock_config_shared {
+    my ($class, $vmid, $timeout, $code, @param) = @_;
+
+    return $lock_file_full_wrapper->($class, $vmid, $timeout, 1, $code, @param);
 }
+
+# Lock config file using flock, run $code with @param, unlock config file.
+# $timeout is the maximum time to acquire the flock
+sub lock_config_full {
+    my ($class, $vmid, $timeout, $code, @param) = @_;
+
+    return $lock_file_full_wrapper->($class, $vmid, $timeout, 0, $code, @param);
+}
+
 
 # Lock config file using flock, run $code with @param, unlock config file.
 sub lock_config {
