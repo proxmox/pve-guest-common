@@ -1,3 +1,9 @@
+libpve-guest-common-perl (3.0-10) pve; urgency=medium
+
+  * fix versioned breaks on qemu-server
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 5 May 2020 11:41:38 +0200
+
 libpve-guest-common-perl (3.0-9) pve; urgency=medium
 
   * fix #2682: make sure configuration file is up-to-date for lock_config-variants
