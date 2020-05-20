@@ -201,40 +201,43 @@ sub format_pending {
 }
 
 # returns the config as an array of hashes, each hash can have the following keys:
-# key (the config property name, non-optional)
-# value (the current value in effect - if any)
-# pending (a new, still pending, value - if any)
-# delete (when deletions are pending, this is set to either 2 (force) or 1 (graceful))
+#  key: the config property name, non-optional
+#  value: the current value in effect - if any
+#  pending: a new, still pending, value - if any
+#  delete: when deletions are pending, this is set to either 2 (force) or 1 (graceful)
 sub config_with_pending_array {
     my ($conf, $pending_delete_hash) = @_;
 
-    my $res = [];
+    my $pending = delete $conf->{pending};
+    # we don't care for snapshots in pending and it makes our loops throw up
+    delete $conf->{snapshots};
 
+    my $res = [];
     foreach my $opt (keys %$conf) {
-	next if ref($conf->{$opt});
-	my $item = { key => $opt };
-	$item->{value} = $conf->{$opt} if defined($conf->{$opt});
-	$item->{pending} = $conf->{pending}->{$opt} if defined($conf->{pending}->{$opt});
-	$item->{delete} = ($pending_delete_hash->{$opt}->{force} ? 2 : 1) if exists $pending_delete_hash->{$opt};
+	my $item = {
+	    key => $opt,
+	    value => $conf->{$opt},
+	};
+	$item->{pending} = delete $pending->{$opt} if defined($conf->{pending}->{$opt});
+	my $delete = delete $pending_delete_hash->{$opt};
+	$item->{delete} = $delete->{force} ? 2 : 1 if defined($delete);
 
 	push @$res, $item;
     }
 
-    foreach my $opt (keys %{$conf->{pending}}) {
+    foreach my $opt (keys %$pending) {
 	next if $opt eq 'delete';
-	next if ref($conf->{pending}->{$opt}); # just to be sure
-	next if defined($conf->{$opt});
-	my $item = { key => $opt };
-	$item->{pending} = $conf->{pending}->{$opt};
-
-	push @$res, $item;
+	push @$res, {
+	    key => $opt,
+	    pending => $pending->{$opt},
+	};
     }
 
     while (my ($opt, $force) = each %$pending_delete_hash) {
-	next if defined($conf->{pending}->{$opt});
-	next if defined($conf->{$opt});
-	my $item = { key => $opt, delete => ($force ? 2 : 1)};
-	push @$res, $item;
+	push @$res, {
+	    key => $opt,
+	    delete => $force ? 2 : 1,
+	};
     }
 
     return $res;

@@ -82,7 +82,6 @@ sub parse_pending_delete {
     my $pending_deletions = {};
     for my $entry (split(/\s+/, $data)) {
 	my ($force, $key) = $entry =~ /^(!?)(.*)$/;
-
 	$pending_deletions->{$key} = {
 	    force => $force ? 1 : 0,
 	};
