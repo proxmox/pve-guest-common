@@ -231,8 +231,8 @@ sub config_with_pending_array {
     }
 
     while (my ($opt, $force) = each %$pending_delete_hash) {
-	next if $conf->{pending}->{$opt}; # just to be sure
-	next if $conf->{$opt};
+	next if defined($conf->{pending}->{$opt});
+	next if defined($conf->{$opt});
 	my $item = { key => $opt, delete => ($force ? 2 : 1)};
 	push @$res, $item;
     }
