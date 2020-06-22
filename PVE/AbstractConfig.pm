@@ -527,10 +527,10 @@ sub get_replicatable_volumes {
 # Return Format (array-ref with hash-refs as elements):
 # [
 #   {
-#     key,        key in the config, e.g. mp0, scsi0,...
-#     included,   boolean
-#     reason,     string
-#     data        volume object as returned from foreach_drive/foreach_mountpoint
+#     key,		key in the config, e.g. mp0, scsi0,...
+#     included,		boolean
+#     reason,		string
+#     volume_config	volume object as returned from foreach_volume()
 #   },
 # ]
 sub get_backup_volumes {
