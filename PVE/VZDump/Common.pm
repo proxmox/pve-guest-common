@@ -210,6 +210,10 @@ my $confdesc = {
 	minimum => 1,
 	default => 1,
     },
+    'prune-backups' => get_standard_option('prune-backups', {
+	description => "Use these retention options instead of those from the storage configuration.",
+	optional => 1,
+    }),
     remove => {
 	type => 'boolean',
 	description => "Remove old backup files if there are more than 'maxfiles' backup files.",
