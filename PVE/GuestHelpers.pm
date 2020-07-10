@@ -214,6 +214,8 @@ sub config_with_pending_array {
 
     my $res = [];
     foreach my $opt (keys %$conf) {
+	next if ref($conf->{$opt});
+
 	my $item = {
 	    key => $opt,
 	    value => $conf->{$opt},
