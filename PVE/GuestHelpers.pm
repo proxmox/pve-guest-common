@@ -214,7 +214,7 @@ sub config_with_pending_array {
 
     my $res = [];
     foreach my $opt (keys %$conf) {
-	next if ref($conf->{$opt});
+	next if ref($conf->{$opt}); # e.g., "raw" lxc.* keys are added as array ref
 
 	my $item = {
 	    key => $opt,
