@@ -220,7 +220,7 @@ sub config_with_pending_array {
 	    key => $opt,
 	    value => $conf->{$opt},
 	};
-	$item->{pending} = delete $pending->{$opt} if defined($conf->{pending}->{$opt});
+	$item->{pending} = delete $pending->{$opt} if defined($pending->{$opt});
 	my $delete = delete $pending_delete_hash->{$opt};
 	$item->{delete} = $delete->{force} ? 2 : 1 if defined($delete);
 
