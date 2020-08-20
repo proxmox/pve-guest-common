@@ -274,6 +274,18 @@ sub destroy_config {
     unlink $config_fn or die "failed to remove config file: $!\n";
 }
 
+# moves configuration owned by calling node to the target node.
+# dies if renaming fails.
+sub move_config_to_node {
+    my ($class, $vmid, $target_node) = @_;
+
+    my $config_fn = $class->config_file($vmid);
+    my $new_config_fn = $class->config_file($vmid, $target_node);
+
+    rename($config_fn, $new_config_fn)
+	or die "failed to move config file to node '$target_node': $!\n";
+}
+
 my $lock_file_full_wrapper = sub {
     my ($class, $vmid, $timeout, $shared, $realcode, @param) = @_;
 
