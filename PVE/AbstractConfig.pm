@@ -276,6 +276,8 @@ sub destroy_config {
 
 # moves configuration owned by calling node to the target node.
 # dies if renaming fails.
+# NOTE: in PVE a node owns the config (hard requirement), so only the owning
+# node may move the config to another node, which then becomes the new owner.
 sub move_config_to_node {
     my ($class, $vmid, $target_node) = @_;
 
