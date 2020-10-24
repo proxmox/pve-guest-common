@@ -160,7 +160,7 @@ sub print_snapshot_tree {
 	printf("%s %-${len}s %-23s %s\n", $prefix, $root, $timestring, $description);
 
 	if ($e->{children}) {
-	    $prefix = "    $prefix";
+	    $prefix = "  $prefix";
 	    foreach my $child (sort $snaptimesort @{$e->{children}}) {
 		$snapshottree_weak->($prefix, $child, $snapshots);
 	    }
