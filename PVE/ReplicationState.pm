@@ -251,22 +251,21 @@ sub job_status {
 	    # only consider guest on local node
 	    next if $vms->{ids}->{$vmid}->{node} ne $local_node;
 
-	    my $target = $jobcfg->{target};
-	    if (!$jobcfg->{remove_job}) {
-		# check if vm was stolen (swapped source target)
-		if ($target eq $local_node) {
-		    my $source = $jobcfg->{source};
-		    if (defined($source) && $source ne $target) {
-			$jobcfg = PVE::ReplicationConfig::swap_source_target_nolock($jobid);
-			$cfg->{ids}->{$jobid} = $jobcfg;
-		    } else {
-			# never sync to local node
-			next;
-		    }
-		}
-
-		next if !$get_disabled && $jobcfg->{disable};
+	    # source is optional in schema, but we set it automatically
+	    if (!defined($jobcfg->{source})) {
+		$jobcfg->{source} = $local_node;
+		$cfg->write();
 	    }
+
+	    # fix jobs for stolen guest
+	    $cfg->switch_replication_job_target_nolock($vmid, $local_node, $jobcfg->{source})
+		if $local_node ne $jobcfg->{source};
+
+	    my $target = $jobcfg->{target};
+	    # never sync to local node
+	    next if !$jobcfg->{remove_job} && $target eq $local_node;
+
+	    next if !$get_disabled && $jobcfg->{disable};
 
 	    my $state = extract_job_state($stateobj, $jobcfg);
 	    $jobcfg->{state} = $state;
@@ -292,11 +291,6 @@ sub job_status {
 	    }
 
 	    $jobcfg->{next_sync} = $next_sync;
-
-	    if (!defined($jobcfg->{source}) || $jobcfg->{source} ne $local_node) {
-		$jobcfg->{source} = $cfg->{ids}->{$jobid}->{source} = $local_node;
-		PVE::ReplicationConfig::write($cfg);
-	    }
 
 	    $jobs->{$jobid} = $jobcfg;
 	}

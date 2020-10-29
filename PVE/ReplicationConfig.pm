@@ -279,19 +279,6 @@ sub remove_vmid_jobs {
     lock($code);
 }
 
-sub swap_source_target_nolock {
-    my ($jobid) = @_;
-
-    my $cfg = __PACKAGE__->new();
-    my $job = $cfg->{ids}->{$jobid};
-    my $tmp = $job->{source};
-    $job->{source} = $job->{target};
-    $job->{target} = $tmp;
-    $cfg->write();
-
-    return $cfg->{ids}->{$jobid};
-}
-
 package PVE::ReplicationConfig::Cluster;
 
 use base qw(PVE::ReplicationConfig);
