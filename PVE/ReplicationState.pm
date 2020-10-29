@@ -234,13 +234,11 @@ sub job_status {
 
     my $jobs = {};
 
-    my $stateobj = read_state();
-
-    my $cfg = PVE::ReplicationConfig->new();
-
-    my $vms = PVE::Cluster::get_vmlist();
-
     my $func = sub {
+	my $stateobj = read_state();
+	my $cfg = PVE::ReplicationConfig->new();
+	my $vms = PVE::Cluster::get_vmlist();
+
 	foreach my $jobid (sort keys %{$cfg->{ids}}) {
 	    my $jobcfg = $cfg->{ids}->{$jobid};
 	    my $vmid = $jobcfg->{guest};
