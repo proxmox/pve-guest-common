@@ -80,7 +80,7 @@ my $defaultData = {
 	    optional => 1,
 	},
 	source => {
-	    description => "Source of the replication.",
+	    description => "For internal use, to detect if the guest was stolen.",
 	    type => 'string', format => 'pve-node',
 	    optional => 1,
 	},
