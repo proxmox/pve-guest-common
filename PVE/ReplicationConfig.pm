@@ -228,23 +228,25 @@ sub find_local_replication_job {
     return undef;
 }
 
-# switch local replication job target
+# makes old_target the new source for all local jobs of this guest
+# makes new_target the target for the single local job with target old_target
 sub switch_replication_job_target {
     my ($vmid, $old_target, $new_target) = @_;
 
-    my $transfer_job = sub {
+    my $update_jobs = sub {
 	my $cfg = PVE::ReplicationConfig->new();
-	my $jobcfg = find_local_replication_job($cfg, $vmid, $old_target);
+	foreach my $jobcfg (values %{$cfg->{ids}}) {
+	    next if $jobcfg->{guest} ne $vmid;
+	    next if $jobcfg->{type} ne 'local';
 
-	return if !$jobcfg;
-
-	$jobcfg->{target} = $new_target;
-
+	    $jobcfg->{target} = $new_target if $jobcfg->{target} eq $old_target;
+	    $jobcfg->{source} = $old_target;
+	}
 	$cfg->write();
     };
 
-    lock($transfer_job);
-};
+    lock($update_jobs);
+}
 
 sub delete_job {
     my ($jobid) = @_;
