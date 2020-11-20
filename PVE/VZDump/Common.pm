@@ -128,7 +128,9 @@ my $confdesc = {
     },
     'exclude-path' => {
 	type => 'string', format => 'string-alist',
-	description => "Exclude certain files/directories (shell globs).",
+	description => "Exclude certain files/directories (shell globs)." .
+	    " Paths starting with '/' are anchored to the container's root, " .
+	    " other paths match relative to each subdirectory.",
 	optional => 1,
     },
     mailto => {
