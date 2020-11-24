@@ -29,6 +29,17 @@ my $dowhash_to_dow = sub {
     return join ',', @da;
 };
 
+my $fixup_prune_backups_option = sub {
+    my ($opts) = @_;
+
+    return if !defined($opts->{'prune-backups'});
+
+    $opts->{'prune-backups'} = PVE::JSONSchema::parse_property_string(
+	'prune-backups',
+	$opts->{'prune-backups'}
+    );
+};
+
 # parse crontab style day of week
 sub parse_dow {
     my ($dowstr, $noerr) = @_;
@@ -293,6 +304,8 @@ sub parse_vzdump_cron_config {
 		$opts->{starttime} = sprintf "%02d:%02d", $hour, $minute;
 		$opts->{dow} = &$dowhash_to_dow($dowhash);
 
+		$fixup_prune_backups_option->($opts); # parse the property string
+
 		push @$jobs, $opts;
 	    };
 	    my $err = $@;
@@ -380,6 +393,10 @@ sub command_line {
 	    foreach my $path (split(/\0/, $v || '')) {
 		$cmd .= " --$p " . PVE::Tools::shellquote($path);
 	    }
+	} elsif ($p eq 'prune-backups') {
+	    my $property_string = PVE::JSONSchema::print_property_string($v, 'prune-backups');
+	    $cmd .= " --$p " . PVE::Tools::shellquote($property_string)
+		if defined($property_string) && $property_string ne '';
 	} else {
 	    $cmd .= " --$p " . PVE::Tools::shellquote($v) if defined($v) && $v ne '';
 	}
