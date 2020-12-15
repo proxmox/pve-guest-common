@@ -1,3 +1,14 @@
+libpve-guest-common-perl (3.1-4) pve; urgency=medium
+
+  * vzdump: use more strict regex check for 'mailto'
+
+  * print snapshot tree: reduce indentation
+
+  * replication: improve on various edge cases for moved VMs, for example, if
+    recovered by HA.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 15 Dec 2020 15:52:30 +0100
+
 libpve-guest-common-perl (3.1-3) pve; urgency=medium
 
   * add prune-backups option to vzdump parameters
