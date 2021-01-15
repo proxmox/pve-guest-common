@@ -174,6 +174,7 @@ my $confdesc = {
 	optional => 1,
 	default => 0,
     },
+    # FIXME: Remove with PVE 7.0
     size => {
 	type => 'integer',
 	description => "Unused, will be removed in a future release.",
