@@ -71,9 +71,6 @@ sub parse_dow {
     return $res;
 };
 
-my $mailto_pattern = '[a-zA-Z0-9+._@][-a-zA-Z0-9+._@]*';
-my $mailto_list_pattern = "($mailto_pattern)([;,]$mailto_pattern)*";
-
 my $confdesc = {
     vmid => {
 	type => 'string', format => 'pve-vmid-list',
@@ -146,8 +143,7 @@ my $confdesc = {
     },
     mailto => {
 	type => 'string',
-	pattern => $mailto_list_pattern,
-	format_description => 'email-or-username-list',
+	format => 'email-or-username-list',
 	description => "Comma-separated list of email addresses or users that should" .
 	    " receive email notifications.",
 	optional => 1,
