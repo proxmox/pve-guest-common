@@ -394,6 +394,7 @@ sub command_line {
 		$cmd .= " --$p " . PVE::Tools::shellquote($path);
 	    }
 	} else {
+	    $v = join(",", PVE::Tools::split_list($v)) if $p eq 'mailto';
 	    $v = PVE::JSONSchema::print_property_string($v, 'prune-backups')
 		if $p eq 'prune-backups';
 
