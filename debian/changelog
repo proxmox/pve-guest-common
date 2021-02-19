@@ -1,3 +1,14 @@
+libpve-guest-common-perl (3.1-5) pve; urgency=medium
+
+  * vzdump: improve handling 'prune-backups' option in commandline and cron
+    config
+
+  * vzdump: command line: make sure mailto is converted to comma-separated list
+
+  * vzdump: mailto: use email-or-username-list format
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 19 Feb 2021 16:32:14 +0100
+
 libpve-guest-common-perl (3.1-4) pve; urgency=medium
 
   * vzdump: use more strict regex check for 'mailto'
