@@ -231,7 +231,8 @@ my $confdesc = {
     }),
     remove => {
 	type => 'boolean',
-	description => "Remove old backup files if there are more than 'maxfiles' backup files.",
+	description => "Remove old backup files if there are more than " .
+	    "'maxfiles' backup files or prune according to 'prune-backups'.",
 	optional => 1,
 	default => 1,
     },
