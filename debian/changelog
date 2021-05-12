@@ -1,3 +1,9 @@
+libpve-guest-common-perl (4.0-1) pve; urgency=medium
+
+  * re-build for Debian 11 Bullseye based releases
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 12 May 2021 13:08:20 +0200
+
 libpve-guest-common-perl (3.1-5) pve; urgency=medium
 
   * vzdump: improve handling 'prune-backups' option in commandline and cron
