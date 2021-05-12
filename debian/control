@@ -2,7 +2,7 @@ Source: libpve-guest-common-perl
 Section: perl
 Priority: optional
 Maintainer: Proxmox Support Team <support@proxmox.com>
-Build-Depends: debhelper (>= 10~),
+Build-Depends: debhelper (>= 12~),
                libpve-cluster-perl,
                libpve-common-perl,
                libpve-storage-perl,
