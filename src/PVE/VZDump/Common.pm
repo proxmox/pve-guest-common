@@ -181,14 +181,6 @@ my $confdesc = {
 	optional => 1,
 	default => 0,
     },
-    # FIXME: Remove with PVE 7.0
-    size => {
-	type => 'integer',
-	description => "Unused, will be removed in a future release.",
-	optional => 1,
-	minimum => 500,
-	default => 1024,
-    },
     bwlimit => {
 	type => 'integer',
 	description => "Limit I/O bandwidth (KBytes per second).",
