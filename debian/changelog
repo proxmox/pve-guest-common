@@ -1,3 +1,11 @@
+libpve-guest-common-perl (4.0-2) pve; urgency=medium
+
+  * vzdump: remove deprecated size parameter
+
+  * vzdump: defaults: keep all backups by default for 7.0
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 9 Jun 2021 10:06:05 +0200
+
 libpve-guest-common-perl (4.0-1) pve; urgency=medium
 
   * re-build for Debian 11 Bullseye based releases
