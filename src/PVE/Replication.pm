@@ -28,7 +28,9 @@ sub get_log_time {
 # Find common base replication snapshot, available on local and remote side.
 # Note: this also removes stale replication snapshots
 sub find_common_replication_snapshot {
-    my ($ssh_info, $jobid, $vmid, $storecfg, $volumes, $storeid_list, $last_sync, $parent_snapname, $logfunc) = @_;
+    my ($ssh_info, $jobid, $vmid, $storecfg, $volumes, $storeid_list, $last_sync, $guest_conf, $logfunc) = @_;
+
+    my $parent_snapname = $guest_conf->{parent};
 
     my $last_sync_snapname =
 	PVE::ReplicationState::replication_snapshot_name($jobid, $last_sync);
@@ -270,10 +272,8 @@ sub replicate {
 
     my $ssh_info = PVE::SSHInfo::get_ssh_info($jobcfg->{target}, $migration_network);
 
-    my $parent_snapname = $conf->{parent};
-
     my ($base_snapshots, $last_snapshots, $last_sync_snapname) = find_common_replication_snapshot(
-	$ssh_info, $jobid, $vmid, $storecfg, $sorted_volids, $state->{storeid_list}, $last_sync, $parent_snapname, $logfunc);
+	$ssh_info, $jobid, $vmid, $storecfg, $sorted_volids, $state->{storeid_list}, $last_sync, $conf, $logfunc);
 
     my $storeid_hash = {};
     foreach my $volid (@$sorted_volids) {
