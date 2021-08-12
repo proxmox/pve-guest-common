@@ -65,10 +65,12 @@ sub find_common_replication_snapshot {
 		     ($last_snapshots->{$volid}->{$parent_snapname} &&
 		      $remote_snapshots->{$volid}->{$parent_snapname})) {
 		$base_snapshots->{$volid} = $parent_snapname;
-	    } elsif ($last_sync == 0) {
+	    } else {
+		# First, try all replication snapshots.
 		my @desc_sorted_snap =
 		    map { $_->[1] } sort { $b->[0] <=> $a->[0] }
-		    map { [ ($_ =~ /__replicate_\Q$jobid\E_(\d+)_/)[0] || 0, $_ ] }
+		    grep { $_->[0] != 0 } # only consider replication snapshots
+		    map { [ ($_ =~ /__replicate_\Q$vmid\E-(?:\d+)_(\d+)_/)[0] || 0, $_ ] }
 		    keys %{$remote_snapshots->{$volid}};
 
 		foreach my $remote_snap (@desc_sorted_snap) {
@@ -77,6 +79,28 @@ sub find_common_replication_snapshot {
 			last;
 		    }
 		}
+
+		# Then, try config snapshots ($parent_snapname was already tested for above).
+		my $snapname = $parent_snapname // '';
+
+		# Be robust against loop, just in case.
+		# https://forum.proxmox.com/threads/snapshot-not-working.69511/post-312281
+		my $max_count = scalar(keys $guest_conf->{snapshots}->%*);
+		for (my $count = 0; $count < $max_count; $count++) {
+		    last if defined($base_snapshots->{$volid});
+
+		    my $snap_conf = $guest_conf->{snapshots}->{$snapname} || last;
+		    $snapname = $snap_conf->{parent} // last;
+
+		    if ($last_snapshots->{$volid}->{$snapname} &&
+			$remote_snapshots->{$volid}->{$snapname})
+		    {
+			$base_snapshots->{$volid} = $snapname;
+		    }
+		}
+
+		# The volume exists on the remote side, so trying a full sync won't work.
+		# Die early with a clean error.
 		die "No common base to restore the job state\n".
 		    "please delete jobid: $jobid and create the job again\n"
 		    if !defined($base_snapshots->{$volid});
@@ -182,6 +206,9 @@ sub prepare {
 		} else {
 		    $last_snapshots->{$volid}->{$snap} = 1;
 		}
+	    # Other snapshots might need to serve as replication base after rollback
+	    } else {
+		$last_snapshots->{$volid}->{$snap} = 1;
 	    }
 	}
     }
