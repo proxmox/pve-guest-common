@@ -228,6 +228,20 @@ sub find_local_replication_job {
     return undef;
 }
 
+sub list_guests_local_replication_jobs {
+    my ($cfg, $vmid) = @_;
+
+    my $jobs = [];
+
+    for my $job (values %{$cfg->{ids}}) {
+	next if $job->{type} ne 'local' || $job->{guest} != $vmid;
+
+	push @{$jobs}, $job;
+    }
+
+    return $jobs;
+}
+
 # makes old_target the new source for all local jobs of this guest
 # makes new_target the target for the single local job with target old_target
 sub switch_replication_job_target_nolock {

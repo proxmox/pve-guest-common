@@ -824,6 +824,44 @@ sub snapshot_create {
     $class->__snapshot_commit($vmid, $snapname);
 }
 
+# Check if the snapshot might still be needed by a replication job.
+my $snapshot_delete_assert_not_needed_by_replication = sub {
+    my ($class, $vmid, $conf, $snap, $snapname) = @_;
+
+    my $repl_conf = PVE::ReplicationConfig->new();
+    return if !$repl_conf->check_for_existing_jobs($vmid, 1);
+
+    my $storecfg = PVE::Storage::config();
+
+    # Current config's volumes are relevant for replication.
+    my $volumes = $class->get_replicatable_volumes($storecfg, $vmid, $conf, 1);
+
+    my $replication_jobs = $repl_conf->list_guests_local_replication_jobs($vmid);
+
+    $class->foreach_volume($snap, sub {
+	my ($vs, $volume) = @_;
+
+	my $volid_key = $class->volid_key();
+	my $volid = $volume->{$volid_key};
+
+	return if !$volumes->{$volid};
+
+	my $snapshots = PVE::Storage::volume_snapshot_list($storecfg, $volid);
+
+	for my $job ($replication_jobs->@*) {
+	    my $jobid = $job->{id};
+
+	    my @jobs_snapshots = grep {
+		PVE::Replication::is_replication_snapshot($_, $jobid)
+	    } $snapshots->@*;
+
+	    next if scalar(@jobs_snapshots) > 0;
+
+	    die "snapshot '$snapname' needed by replication job '$jobid' - run replication first\n";
+	}
+    });
+};
+
 # Deletes a snapshot.
 # Note: $drivehash is only set when called from snapshot_create.
 sub snapshot_delete {
@@ -837,6 +875,9 @@ sub snapshot_delete {
     my $snap = $conf->{snapshots}->{$snapname};
 
     die "snapshot '$snapname' does not exist\n" if !defined($snap);
+
+    $snapshot_delete_assert_not_needed_by_replication->($class, $vmid, $conf, $snap, $snapname)
+	if !$drivehash && !$force;
 
     $class->set_lock($vmid, 'snapshot-delete')
 	if (!$drivehash); # doesn't already have a 'snapshot' lock

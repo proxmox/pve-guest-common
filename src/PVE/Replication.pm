@@ -470,7 +470,11 @@ sub run_replication {
 }
 
 sub is_replication_snapshot {
-    my ($snapshot_name) = @_;
+    my ($snapshot_name, $jobid) = @_;
+
+    if (defined($jobid)) {
+	return $snapshot_name =~ m/^__replicate_\Q$jobid\E/ ? 1 : 0;
+    }
 
     return $snapshot_name =~ m/^__replicate_/ ? 1 : 0;
 }
