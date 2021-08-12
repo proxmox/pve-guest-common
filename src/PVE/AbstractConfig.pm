@@ -943,13 +943,38 @@ sub snapshot_delete {
     });
 }
 
+# Remove replication snapshots to make a rollback possible.
+my $rollback_remove_replication_snapshots = sub {
+    my ($class, $vmid, $snap) = @_;
+
+    my $storecfg = PVE::Storage::config();
+
+    my $repl_conf = PVE::ReplicationConfig->new();
+    return if !$repl_conf->check_for_existing_jobs($vmid, 1);
+
+    my $volumes = $class->get_replicatable_volumes($storecfg, $vmid, $snap, 1);
+
+    # filter by what we actually iterate over below (excludes vmstate!)
+    my $volids = [];
+    $class->foreach_volume($snap, sub {
+	my ($vs, $volume) = @_;
+
+	my $volid_key = $class->volid_key();
+	my $volid = $volume->{$volid_key};
+
+	push @{$volids}, $volid if $volumes->{$volid};
+    });
+
+    # remove all local replication snapshots (jobid => undef)
+    my $logfunc = sub { my $line = shift; chomp $line; print "$line\n"; };
+    PVE::Replication::prepare($storecfg, $volids, undef, 1, undef, $logfunc);
+};
+
 # Rolls back to a given snapshot.
 sub snapshot_rollback {
     my ($class, $vmid, $snapname) = @_;
 
     my $prepare = 1;
-
-    my $storecfg = PVE::Storage::config();
 
     my $data = {};
 
@@ -972,25 +997,7 @@ sub snapshot_rollback {
 	$snap = $get_snapshot_config->($conf);
 
 	if ($prepare) {
-	    my $repl_conf = PVE::ReplicationConfig->new();
-	    if ($repl_conf->check_for_existing_jobs($vmid, 1)) {
-		my $volumes = $class->get_replicatable_volumes($storecfg, $vmid, $snap, 1);
-
-		# filter by what we actually iterate over below (excludes vmstate!)
-		my $volids = [];
-		$class->foreach_volume($snap, sub {
-		    my ($vs, $volume) = @_;
-
-		    my $volid_key = $class->volid_key();
-		    my $volid = $volume->{$volid_key};
-
-		    push @{$volids}, $volid if $volumes->{$volid};
-		});
-
-		# remove all local replication snapshots (jobid => undef)
-		my $logfunc = sub { my $line = shift; chomp $line; print "$line\n"; };
-		PVE::Replication::prepare($storecfg, $volids, undef, 1, undef, $logfunc);
-	    }
+	    $rollback_remove_replication_snapshots->($class, $vmid, $snap);
 
 	    $class->foreach_volume($snap, sub {
 	       my ($vs, $volume) = @_;
