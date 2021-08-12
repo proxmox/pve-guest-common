@@ -945,7 +945,7 @@ sub snapshot_delete {
 
 # Remove replication snapshots to make a rollback possible.
 my $rollback_remove_replication_snapshots = sub {
-    my ($class, $vmid, $snap) = @_;
+    my ($class, $vmid, $snap, $snapname) = @_;
 
     my $storecfg = PVE::Storage::config();
 
@@ -954,17 +954,56 @@ my $rollback_remove_replication_snapshots = sub {
 
     my $volumes = $class->get_replicatable_volumes($storecfg, $vmid, $snap, 1);
 
-    # filter by what we actually iterate over below (excludes vmstate!)
+    # For these, all replication snapshots need to be removed for backwards compatibility.
     my $volids = [];
+
+    # For these, we know more and can remove only the required replication snapshots.
+    my $blocking_snapshots = {};
+
+    # filter by what we actually iterate over below (excludes vmstate!)
     $class->foreach_volume($snap, sub {
 	my ($vs, $volume) = @_;
 
 	my $volid_key = $class->volid_key();
 	my $volid = $volume->{$volid_key};
 
-	push @{$volids}, $volid if $volumes->{$volid};
+	return if !$volumes->{$volid};
+
+	my $blockers = [];
+	eval { $class->__snapshot_rollback_vol_possible($volume, $snapname, $blockers); };
+	if (my $err = $@) {
+	    # FIXME die instead, once $blockers is required by the storage plugin API
+	    # and the guest plugins are required to be new enough to support it too.
+	    # Currently, it's not possible to distinguish between blockers being empty
+	    # because the plugin is old versus because there is a different error.
+	    if (scalar($blockers->@*) == 0) {
+		push @{$volids}, $volid;
+		return;
+	    }
+
+	    for my $blocker ($blockers->@*) {
+		die $err if !PVE::Replication::is_replication_snapshot($blocker);
+	    }
+
+	    $blocking_snapshots->{$volid} = $blockers;
+	}
     });
 
+    my $removed_repl_snapshot;
+    for my $volid (sort keys $blocking_snapshots->%*) {
+	my $blockers = $blocking_snapshots->{$volid};
+
+	for my $blocker ($blockers->@*) {
+	    warn "WARN: removing replication snapshot '$volid\@$blocker'\n";
+	    $removed_repl_snapshot = 1;
+	    eval { PVE::Storage::volume_snapshot_delete($storecfg, $volid, $blocker); };
+	    die $@ if $@;
+	}
+    }
+    warn "WARN: you shouldn't remove '$snapname' before running the next replication!\n"
+	if $removed_repl_snapshot;
+
+    # Need to keep using a hammer for backwards compatibility...
     # remove all local replication snapshots (jobid => undef)
     my $logfunc = sub { my $line = shift; chomp $line; print "$line\n"; };
     PVE::Replication::prepare($storecfg, $volids, undef, 1, undef, $logfunc);
@@ -997,7 +1036,7 @@ sub snapshot_rollback {
 	$snap = $get_snapshot_config->($conf);
 
 	if ($prepare) {
-	    $rollback_remove_replication_snapshots->($class, $vmid, $snap);
+	    $rollback_remove_replication_snapshots->($class, $vmid, $snap, $snapname);
 
 	    $class->foreach_volume($snap, sub {
 	       my ($vs, $volume) = @_;

@@ -435,4 +435,10 @@ sub run_replication {
     return $volumes;
 }
 
+sub is_replication_snapshot {
+    my ($snapshot_name) = @_;
+
+    return $snapshot_name =~ m/^__replicate_/ ? 1 : 0;
+}
+
 1;
