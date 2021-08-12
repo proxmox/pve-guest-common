@@ -36,18 +36,25 @@ sub find_common_replication_snapshot {
     # test if we have a replication_ snapshot from last sync
     # and remove all other/stale replication snapshots
 
-    my $last_snapshots = prepare(
-	$storecfg, $volumes, $jobid, $last_sync, $parent_snapname, $logfunc);
+    my $last_snapshots =
+	prepare($storecfg, $volumes, $jobid, $last_sync, $parent_snapname, $logfunc);
 
     # prepare remote side
     my $remote_snapshots = remote_prepare_local_job(
-	$ssh_info, $jobid, $vmid, $volumes, $storeid_list, $last_sync, $parent_snapname, 0, $logfunc);
+	$ssh_info,
+	$jobid,
+	$vmid,
+	$volumes,
+	$storeid_list,
+	$last_sync,
+	$parent_snapname,
+	0,
+	$logfunc,
+    );
 
     my $base_snapshots = {};
 
     foreach my $volid (@$volumes) {
-	my $base_snapname;
-
 	if (defined($last_snapshots->{$volid}) && defined($remote_snapshots->{$volid})) {
 	    if ($last_snapshots->{$volid}->{$last_sync_snapname} &&
 		$remote_snapshots->{$volid}->{$last_sync_snapname}) {
