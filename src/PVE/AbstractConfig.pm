@@ -721,14 +721,21 @@ sub __snapshot_prepare {
 
 	$conf->{lock} = 'snapshot';
 
+	my $snapshots = $conf->{snapshots};
+
 	die "snapshot name '$snapname' already used\n"
-	    if defined($conf->{snapshots}->{$snapname});
+	    if defined($snapshots->{$snapname});
 
 	my $storecfg = PVE::Storage::config();
 	die "snapshot feature is not available\n"
 	    if !$class->has_feature('snapshot', $conf, $storecfg, undef, undef, $snapname eq 'vzdump');
 
-	$snap = $conf->{snapshots}->{$snapname} = {};
+	foreach my $existing_snapshot (keys %$snapshots) {
+	    my $parent_name = $snapshots->{$existing_snapshot}->{parent} // '';
+	    delete $snapshots->{$existing_snapshot}->{parent} if $snapname eq $parent_name;
+	}
+
+	$snap = $snapshots->{$snapname} = {};
 
 	if ($save_vmstate && $class->__snapshot_check_running($vmid)) {
 	    $class->__snapshot_save_vmstate($vmid, $conf, $snapname, $storecfg);
