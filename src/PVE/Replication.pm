@@ -67,17 +67,19 @@ sub find_common_replication_snapshot {
 		$base_snapshots->{$volid} = $parent_snapname;
 	    } else {
 		# First, try all replication snapshots.
-		my @desc_sorted_snap =
-		    map { $_->[1] } sort { $b->[0] <=> $a->[0] }
-		    grep { $_->[0] != 0 } # only consider replication snapshots
-		    map { [ ($_ =~ /__replicate_\Q$vmid\E-(?:\d+)_(\d+)_/)[0] || 0, $_ ] }
-		    keys %{$remote_snapshots->{$volid}};
+		my $most_recent = [0, undef];
+		for my $remote_snap (keys $remote_snapshots->{$volid}->%*) {
+		    next if !defined($last_snapshots->{$volid}->{$remote_snap});
 
-		foreach my $remote_snap (@desc_sorted_snap) {
-		    if (defined($last_snapshots->{$volid}->{$remote_snap})) {
-			$base_snapshots->{$volid} = $remote_snap;
-			last;
-		    }
+		    my $timestamp = ($remote_snap =~ /__replicate_\Q$vmid\E-(?:\d+)_(\d+)_/)[0];
+		    next if !$timestamp;
+
+		    $most_recent = [$timestamp, $remote_snap] if $timestamp > $most_recent->[0];
+		}
+
+		if ($most_recent->[1]) {
+		    $base_snapshots->{$volid} = $most_recent->[1];
+		    next;
 		}
 
 		# Then, try config snapshots ($parent_snapname was already tested for above).
