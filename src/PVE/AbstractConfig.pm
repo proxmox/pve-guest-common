@@ -846,14 +846,14 @@ my $snapshot_delete_assert_not_needed_by_replication = sub {
 
 	return if !$volumes->{$volid};
 
-	my $snapshots = PVE::Storage::volume_snapshot_list($storecfg, $volid);
+	my $snapshots = PVE::Storage::volume_snapshot_info($storecfg, $volid);
 
 	for my $job ($replication_jobs->@*) {
 	    my $jobid = $job->{id};
 
 	    my @jobs_snapshots = grep {
 		PVE::Replication::is_replication_snapshot($_, $jobid)
-	    } $snapshots->@*;
+	    } keys $snapshots->%*;
 
 	    next if scalar(@jobs_snapshots) > 0;
 
