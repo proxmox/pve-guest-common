@@ -181,11 +181,11 @@ sub prepare {
     my $last_snapshots = {};
     my $cleaned_replicated_volumes = {};
     foreach my $volid (@$volids) {
-	my $list = PVE::Storage::volume_snapshot_list($storecfg, $volid);
-	foreach my $snap (@$list) {
+	my $info = PVE::Storage::volume_snapshot_info($storecfg, $volid);
+	for my $snap (keys $info->%*) {
 	    if ((defined($snapname) && ($snap eq $snapname)) ||
 		(defined($parent_snapname) && ($snap eq $parent_snapname))) {
-		$last_snapshots->{$volid}->{$snap} = 1;
+		$last_snapshots->{$volid}->{$snap} = $info->{$snap};
 	    } elsif ($snap =~ m/^\Q$prefix\E/) {
 		if ($last_sync != 0) {
 		    $logfunc->("delete stale replication snapshot '$snap' on $volid");
@@ -206,11 +206,11 @@ sub prepare {
 		    }		
 		# Last_sync=0 and a replication snapshot only occur, if the VM was stolen
 		} else {
-		    $last_snapshots->{$volid}->{$snap} = 1;
+		    $last_snapshots->{$volid}->{$snap} = $info->{$snap};
 		}
 	    # Other snapshots might need to serve as replication base after rollback
 	    } else {
-		$last_snapshots->{$volid}->{$snap} = 1;
+		$last_snapshots->{$volid}->{$snap} = $info->{$snap};
 	    }
 	}
     }
