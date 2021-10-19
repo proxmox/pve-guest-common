@@ -31,6 +31,7 @@ sub find_common_replication_snapshot {
     my ($ssh_info, $jobid, $vmid, $storecfg, $volumes, $storeid_list, $last_sync, $guest_conf, $logfunc) = @_;
 
     my $parent_snapname = $guest_conf->{parent};
+    my $conf_snapshots = $guest_conf->{snapshots};
 
     my $last_sync_snapname =
 	PVE::ReplicationState::replication_snapshot_name($jobid, $last_sync);
@@ -57,48 +58,40 @@ sub find_common_replication_snapshot {
     my $base_snapshots = {};
 
     foreach my $volid (@$volumes) {
-	if (defined($last_snapshots->{$volid}) && defined($remote_snapshots->{$volid})) {
-	    if ($last_snapshots->{$volid}->{$last_sync_snapname} &&
-		$remote_snapshots->{$volid}->{$last_sync_snapname}) {
+	my $local_info = $last_snapshots->{$volid};
+	my $remote_info = $remote_snapshots->{$volid};
+
+	if (defined($local_info) && defined($remote_info)) {
+	    my $common_snapshot = sub {
+		my ($snap) = @_;
+
+		return 0 if !$local_info->{$snap} || !$remote_info->{$snap};
+
+		# Check for ID if remote side supports it already.
+		return $local_info->{$snap}->{id} eq $remote_info->{$snap}->{id}
+		    if ref($remote_info->{$snap}) eq 'HASH';
+
+		return 1;
+	    };
+
+	    if ($common_snapshot->($last_sync_snapname)) {
 		$base_snapshots->{$volid} = $last_sync_snapname;
-	    } elsif (defined($parent_snapname) &&
-		     ($last_snapshots->{$volid}->{$parent_snapname} &&
-		      $remote_snapshots->{$volid}->{$parent_snapname})) {
+	    } elsif (defined($parent_snapname) && $common_snapshot->($parent_snapname)) {
 		$base_snapshots->{$volid} = $parent_snapname;
 	    } else {
-		# First, try all replication snapshots.
 		my $most_recent = [0, undef];
-		for my $remote_snap (keys $remote_snapshots->{$volid}->%*) {
-		    next if !defined($last_snapshots->{$volid}->{$remote_snap});
+		for my $snapshot (keys $local_info->%*) {
+		    next if !$common_snapshot->($snapshot);
+		    next if !$conf_snapshots->{$snapshot} && !is_replication_snapshot($snapshot);
 
-		    my $timestamp = ($remote_snap =~ /__replicate_\Q$vmid\E-(?:\d+)_(\d+)_/)[0];
-		    next if !$timestamp;
+		    my $timestamp = $local_info->{$snapshot}->{timestamp};
 
-		    $most_recent = [$timestamp, $remote_snap] if $timestamp > $most_recent->[0];
+		    $most_recent = [$timestamp, $snapshot] if $timestamp > $most_recent->[0];
 		}
 
 		if ($most_recent->[1]) {
 		    $base_snapshots->{$volid} = $most_recent->[1];
 		    next;
-		}
-
-		# Then, try config snapshots ($parent_snapname was already tested for above).
-		my $snapname = $parent_snapname // '';
-
-		# Be robust against loop, just in case.
-		# https://forum.proxmox.com/threads/snapshot-not-working.69511/post-312281
-		my $max_count = scalar(keys $guest_conf->{snapshots}->%*);
-		for (my $count = 0; $count < $max_count; $count++) {
-		    last if defined($base_snapshots->{$volid});
-
-		    my $snap_conf = $guest_conf->{snapshots}->{$snapname} || last;
-		    $snapname = $snap_conf->{parent} // last;
-
-		    if ($last_snapshots->{$volid}->{$snapname} &&
-			$remote_snapshots->{$volid}->{$snapname})
-		    {
-			$base_snapshots->{$volid} = $snapname;
-		    }
 		}
 
 		# The volume exists on the remote side, so trying a full sync won't work.
