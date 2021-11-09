@@ -1,3 +1,12 @@
+libpve-guest-common-perl (4.0-3) pve; urgency=medium
+
+  * fix #3111: improve replication handling, cleaning of blocking snapshots
+    when doing a rollback, and try harder to find common replication base
+
+  * fix #3111: snapshot delete: check if replication still needs it
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 9 Nov 2021 13:14:58 +0100
+
 libpve-guest-common-perl (4.0-2) pve; urgency=medium
 
   * vzdump: remove deprecated size parameter

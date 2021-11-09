@@ -5,7 +5,7 @@ Maintainer: Proxmox Support Team <support@proxmox.com>
 Build-Depends: debhelper (>= 12~),
                libpve-cluster-perl,
                libpve-common-perl,
-               libpve-storage-perl,
+               libpve-storage-perl (>= 7.0-14),
                pve-cluster,
 Standards-Version: 4.5.1
 Homepage: https://www.proxmox.com
@@ -14,7 +14,7 @@ Package: libpve-guest-common-perl
 Architecture: all
 Depends: libpve-cluster-perl,
          libpve-common-perl (>= 4.0-89),
-         libpve-storage-perl (>= 6.1-6),
+         libpve-storage-perl (>= 7.0-14),
          pve-cluster,
          ${misc:Depends},
          ${perl:Depends},
