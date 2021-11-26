@@ -176,32 +176,28 @@ sub prepare {
     foreach my $volid (@$volids) {
 	my $info = PVE::Storage::volume_snapshot_info($storecfg, $volid);
 	for my $snap (keys $info->%*) {
-	    if ((defined($snapname) && ($snap eq $snapname)) ||
-		(defined($parent_snapname) && ($snap eq $parent_snapname))) {
-		$last_snapshots->{$volid}->{$snap} = $info->{$snap};
-	    } elsif ($snap =~ m/^\Q$prefix\E/) {
-		if ($last_sync != 0) {
-		    $logfunc->("delete stale replication snapshot '$snap' on $volid");
-		    eval {
-			PVE::Storage::volume_snapshot_delete($storecfg, $volid, $snap);
-			$cleaned_replicated_volumes->{$volid} = 1;
-		    };
+	    if ( # check if it's a stale replication snapshot
+		!(defined($snapname) && $snap eq $snapname) &&
+		!(defined($parent_snapname) && $snap eq $parent_snapname) &&
+		$snap =~ m/^\Q$prefix\E/ &&
+		$last_sync != 0 # last_sync is 0 if the VM was stolen
+	    ) {
+		$logfunc->("delete stale replication snapshot '$snap' on $volid");
+		eval {
+		    PVE::Storage::volume_snapshot_delete($storecfg, $volid, $snap);
+		    $cleaned_replicated_volumes->{$volid} = 1;
+		};
 
-		    # If deleting the snapshot fails, we can not be sure if it was due to an error or a timeout.
-		    # The likelihood that the delete has worked out is high at a timeout.
-		    # If it really fails, it will try to remove on the next run.
-		    if (my $err = $@) {
-			# warn is for syslog/journal.
-			warn $err;
+		# If deleting the snapshot fails, we can not be sure if it was due to an error or a timeout.
+		# The likelihood that the delete has worked out is high at a timeout.
+		# If it really fails, it will try to remove on the next run.
+		if (my $err = $@) {
+		    # warn is for syslog/journal.
+		    warn $err;
 
-			# logfunc will written in replication log.
-			$logfunc->("delete stale replication snapshot error: $err");
-		    }		
-		# Last_sync=0 and a replication snapshot only occur, if the VM was stolen
-		} else {
-		    $last_snapshots->{$volid}->{$snap} = $info->{$snap};
+		    # logfunc will written in replication log.
+		    $logfunc->("delete stale replication snapshot error: $err");
 		}
-	    # Other snapshots might need to serve as replication base after rollback
 	    } else {
 		$last_snapshots->{$volid}->{$snap} = $info->{$snap};
 	    }
