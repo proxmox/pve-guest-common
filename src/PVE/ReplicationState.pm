@@ -159,6 +159,13 @@ sub delete_guest_states {
     PVE::Tools::lock_file($state_lock, 10, $code);
 }
 
+sub record_sync_end {
+    my ($jobcfg, $state, $start_time) = @_;
+
+    $state->{last_sync} = $start_time;
+    write_job_state($jobcfg, $state);
+}
+
 sub record_job_end {
     my ($jobcfg, $state, $start_time, $duration, $err) = @_;
 

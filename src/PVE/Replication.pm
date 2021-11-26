@@ -372,6 +372,9 @@ sub replicate {
 	die $err;
     }
 
+    # Ensure that new sync is recorded before removing old replication snapshots.
+    PVE::ReplicationState::record_sync_end($jobcfg, $state, $start_time);
+
     # remove old snapshots because they are no longer needed
     $cleanup_local_snapshots->($last_snapshots, $last_sync_snapname);
 
