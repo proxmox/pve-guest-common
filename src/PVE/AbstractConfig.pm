@@ -730,9 +730,12 @@ sub __snapshot_prepare {
 	die "snapshot feature is not available\n"
 	    if !$class->has_feature('snapshot', $conf, $storecfg, undef, undef, $snapname eq 'vzdump');
 
-	foreach my $existing_snapshot (keys %$snapshots) {
-	    my $parent_name = $snapshots->{$existing_snapshot}->{parent} // '';
-	    delete $snapshots->{$existing_snapshot}->{parent} if $snapname eq $parent_name;
+	for my $snap (sort keys %$snapshots) {
+	    my $parent_name = $snapshots->{$snap}->{parent} // '';
+	    if ($snapname eq $parent_name) {
+		warn "deleting parent '$parent_name' reference from '$snap' to avoid bogus snapshot cycle.\n";
+		delete $snapshots->{$snap}->{parent};
+	    }
 	}
 
 	$snap = $snapshots->{$snapname} = {};
