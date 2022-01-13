@@ -877,8 +877,6 @@ my $snapshot_delete_assert_not_needed_by_replication = sub {
 sub snapshot_delete {
     my ($class, $vmid, $snapname, $force, $drivehash) = @_;
 
-    my $prepare = 1;
-
     my $unused = [];
 
     my $conf = $class->load_config($vmid);
