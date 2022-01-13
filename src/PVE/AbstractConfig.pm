@@ -786,6 +786,13 @@ sub __snapshot_commit {
     $class->lock_config($vmid, $updatefn);
 }
 
+# Activates the storages affected by the snapshot operations.
+sub __snapshot_activate_storages {
+    my ($class, $conf, $include_vmstate) = @_;
+
+    return; # FIXME PVE 8.x change to die 'implement me' and bump Breaks for older plugins
+}
+
 # Creates a snapshot for the VM/CT.
 sub snapshot_create {
     my ($class, $vmid, $snapname, $save_vmstate, $comment) = @_;
@@ -801,6 +808,8 @@ sub snapshot_create {
     my $drivehash = {};
 
     eval {
+	$class->__snapshot_activate_storages($conf, 0);
+
 	if ($freezefs) {
 	    $class->__snapshot_freeze($vmid, 0);
 	}
@@ -883,6 +892,8 @@ sub snapshot_delete {
     my $snap = $conf->{snapshots}->{$snapname};
 
     die "snapshot '$snapname' does not exist\n" if !defined($snap);
+
+    $class->__snapshot_activate_storages($snap, 1) if !$drivehash;
 
     $snapshot_delete_assert_not_needed_by_replication->($class, $vmid, $conf, $snap, $snapname)
 	if !$drivehash && !$force;
@@ -1085,6 +1096,8 @@ sub snapshot_rollback {
 	$snap = $get_snapshot_config->($conf);
 
 	if ($prepare) {
+	    $class->__snapshot_activate_storages($snap, 1);
+
 	    $rollback_remove_replication_snapshots->($class, $vmid, $snap, $snapname);
 
 	    $class->foreach_volume($snap, sub {
