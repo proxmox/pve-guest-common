@@ -115,22 +115,27 @@ sub migrate {
 
     $class = ref($class) || $class;
 
-    my $dc_conf = PVE::Cluster::cfs_read_file('datacenter.cfg');
+    my ($ssh_info, $rem_ssh);
+    if (!$opts->{remote}) {
+	my $dc_conf = PVE::Cluster::cfs_read_file('datacenter.cfg');
 
-    my $migration_network = $opts->{migration_network};
-    if (!defined($migration_network)) {
-	$migration_network = $dc_conf->{migration}->{network};
-    }
-    my $ssh_info = PVE::SSHInfo::get_ssh_info($node, $migration_network);
-    $nodeip = $ssh_info->{ip};
+	my $migration_network = $opts->{migration_network};
+	if (!defined($migration_network)) {
+	    $migration_network = $dc_conf->{migration}->{network};
+	}
+	$ssh_info = PVE::SSHInfo::get_ssh_info($node, $migration_network);
+	$nodeip = $ssh_info->{ip};
 
-    my $migration_type = 'secure';
-    if (defined($opts->{migration_type})) {
-	$migration_type = $opts->{migration_type};
-    } elsif (defined($dc_conf->{migration}->{type})) {
-        $migration_type = $dc_conf->{migration}->{type};
+	my $migration_type = 'secure';
+	if (defined($opts->{migration_type})) {
+	    $migration_type = $opts->{migration_type};
+	} elsif (defined($dc_conf->{migration}->{type})) {
+	    $migration_type = $dc_conf->{migration}->{type};
+	}
+	$opts->{migration_type} = $migration_type;
+	$opts->{migration_network} = $migration_network;
+	$rem_ssh = PVE::SSHInfo::ssh_info_to_command($ssh_info);
     }
-    $opts->{migration_type} = $migration_type;
 
     my $self = {
 	delayed_interrupt => 0,
@@ -139,7 +144,7 @@ sub migrate {
 	node => $node,
 	ssh_info => $ssh_info,
 	nodeip => $nodeip,
-	rem_ssh => PVE::SSHInfo::ssh_info_to_command($ssh_info)
+	rem_ssh => $rem_ssh,
     };
 
     $self = bless $self, $class;
@@ -162,7 +167,7 @@ sub migrate {
 	&$eval_int($self, sub { $self->{running} = $self->prepare($self->{vmid}); });
 	die $@ if $@;
 
-	if (defined($migration_network)) {
+	if (defined($self->{opts}->{migration_network})) {
 	    $self->log('info', "use dedicated network address for sending " .
 	               "migration traffic ($self->{nodeip})");
 
