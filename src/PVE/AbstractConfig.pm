@@ -790,7 +790,9 @@ sub __snapshot_commit {
 sub __snapshot_activate_storages {
     my ($class, $conf, $include_vmstate) = @_;
 
-    return; # FIXME PVE 8.x change to die 'implement me' and bump Breaks for older plugins
+    # FIXME PVE 8.x (or earlier with break/versioned-depens): uncomment and drop return
+    # die "implement me";
+    return;
 }
 
 # Creates a snapshot for the VM/CT.
