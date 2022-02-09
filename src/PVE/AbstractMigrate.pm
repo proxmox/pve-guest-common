@@ -342,4 +342,30 @@ sub switch_replication_job_target {
     }
 }
 
+# merges local limit '$bwlimit' and a possible remote limit
+sub get_bwlimit {
+    my ($self, $source, $target) = @_;
+
+    my $local_sids = $self->{opts}->{remote} ? [$source] : [$source, $target];
+
+    my $bwlimit = PVE::Storage::get_bandwidth_limit('migration', $local_sids, $self->{opts}->{bwlimit});
+
+    if ($self->{opts}->{remote}) {
+	my $bwlimit_opts = {
+	    operation => 'migration',
+	    storages => [$target],
+	    bwlimit => $self->{opts}->{bwlimit},
+	};
+	my $remote_bwlimit = PVE::Tunnel::write_tunnel($self->{tunnel}, 10, 'bwlimit', $bwlimit_opts);
+	if ($remote_bwlimit && $remote_bwlimit->{bwlimit}) {
+	    $remote_bwlimit = $remote_bwlimit->{bwlimit};
+
+	    $bwlimit = $remote_bwlimit
+		if (!$bwlimit || $bwlimit > $remote_bwlimit);
+	}
+    }
+
+    return $bwlimit;
+}
+
 1;
