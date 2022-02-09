@@ -1,4 +1,22 @@
-libpve-guest-common-perl (4.0-3) pve; urgency=medium
+libpve-guest-common-perl (4.1-1) bullseye; urgency=medium
+
+  * replication: update last_sync before removing old replication
+    snapshots
+
+  * snapshots: delete parent property if new snapshot name is already a
+    parent to existing one
+
+  * config: alaways activate affected storages for snapshot operations
+
+  * migrate: handle migration_network with remote migration
+
+  * migrate: add get_bwlimit helper
+
+  * add tunnel and storage tunnel helper modules
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 09 Feb 2022 18:27:46 +0100
+
+libpve-guest-common-perl (4.0-3) bullseye; urgency=medium
 
   * fix #3111: improve replication handling, cleaning of blocking snapshots
     when doing a rollback, and try harder to find common replication base
@@ -7,7 +25,7 @@ libpve-guest-common-perl (4.0-3) pve; urgency=medium
 
  -- Proxmox Support Team <support@proxmox.com>  Tue, 9 Nov 2021 13:14:58 +0100
 
-libpve-guest-common-perl (4.0-2) pve; urgency=medium
+libpve-guest-common-perl (4.0-2) bullseye; urgency=medium
 
   * vzdump: remove deprecated size parameter
 
@@ -15,13 +33,13 @@ libpve-guest-common-perl (4.0-2) pve; urgency=medium
 
  -- Proxmox Support Team <support@proxmox.com>  Wed, 9 Jun 2021 10:06:05 +0200
 
-libpve-guest-common-perl (4.0-1) pve; urgency=medium
+libpve-guest-common-perl (4.0-1) bullseye; urgency=medium
 
   * re-build for Debian 11 Bullseye based releases
 
  -- Proxmox Support Team <support@proxmox.com>  Wed, 12 May 2021 13:08:20 +0200
 
-libpve-guest-common-perl (3.1-5) pve; urgency=medium
+libpve-guest-common-perl (3.1-5) buster; urgency=medium
 
   * vzdump: improve handling 'prune-backups' option in commandline and cron
     config
