@@ -157,6 +157,7 @@ sub print_snapshot_tree {
 	}
 
 	my $len = 30 - length($prefix); # for aligning the description
+	$len = 0 if $len < 0;
 	printf("%s %-${len}s %-23s %s\n", $prefix, $root, $timestring, $description);
 
 	if ($e->{children}) {
