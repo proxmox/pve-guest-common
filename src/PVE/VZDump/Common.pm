@@ -233,7 +233,22 @@ my $confdesc = {
 	type => 'string',
 	description => 'Backup all known guest systems included in the specified pool.',
 	optional => 1,
-    }
+    },
+    'notes-template' => {
+	type => 'string',
+	description => "Template string for generating notes for the backup(s). It can contain ".
+	    "variables which will be replaced by their values. Currently supported are ".
+	    "{{cluster}}, {{guestname}}, {{node}}, and {{vmid}}, but more might be added in the ".
+	    "future.",
+	requires => 'storage',
+	optional => 1,
+    },
+    protected => {
+	type => 'boolean',
+	description => "If true, mark backup(s) as protected.",
+	requires => 'storage',
+	optional => 1,
+    },
 };
 
 sub get_confdesc {
