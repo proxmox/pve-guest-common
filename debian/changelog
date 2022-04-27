@@ -1,3 +1,16 @@
+libpve-guest-common-perl (4.1-2) bullseye; urgency=medium
+
+  * print snapshot tree: clamp indentation length to positive
+
+  * print snapshot tree: reduce indentation delta per level
+
+  * replication config: retry first three failed times quicker before going to
+    30m. Previously this was done two times.
+
+  * vzdump: schema: add 'notes-template' and 'protected' properties
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 27 Apr 2022 18:51:15 +0200
+
 libpve-guest-common-perl (4.1-1) bullseye; urgency=medium
 
   * replication: update last_sync before removing old replication
