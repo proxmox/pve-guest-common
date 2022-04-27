@@ -16,9 +16,11 @@ use base qw(PVE::SectionConfig);
 
 my $replication_cfg_filename = 'replication.cfg';
 
-cfs_register_file($replication_cfg_filename,
-		  sub { __PACKAGE__->parse_config(@_); },
-		  sub { __PACKAGE__->write_config(@_); });
+cfs_register_file(
+    $replication_cfg_filename,
+    sub { __PACKAGE__->parse_config(@_); },
+    sub { __PACKAGE__->write_config(@_); },
+);
 
 PVE::JSONSchema::register_format('pve-replication-job-id',
 				 \&parse_replication_job_id);
@@ -61,7 +63,9 @@ my $defaultData = {
 	    maxLength => 4096,
 	},
 	remove_job => {
-	    description => "Mark the replication job for removal. The job will remove all local replication snapshots. When set to 'full', it also tries to remove replicated volumes on the target. The job then removes itself from the configuration file.",
+	    description => "Mark the replication job for removal. The job will remove all local"
+	      ." replication snapshots. When set to 'full', it also tries to remove replicated"
+	      ." volumes on the target. The job then removes itself from the configuration file.",
 	    type => 'string',
 	    enum => ['local', 'full'],
 	    optional => 1,
