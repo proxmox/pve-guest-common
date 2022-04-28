@@ -239,7 +239,8 @@ my $confdesc = {
 	description => "Template string for generating notes for the backup(s). It can contain ".
 	    "variables which will be replaced by their values. Currently supported are ".
 	    "{{cluster}}, {{guestname}}, {{node}}, and {{vmid}}, but more might be added in the ".
-	    "future.",
+	    "future. Needs to be a single line, newline and backslash need to be escaped as '\\n' ".
+	    "and '\\\\' respectively.",
 	requires => 'storage',
 	optional => 1,
     },
