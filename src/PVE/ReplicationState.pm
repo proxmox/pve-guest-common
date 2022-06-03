@@ -215,7 +215,7 @@ sub purge_old_states {
 	my $tid = $plugin->get_unique_target_id($jobcfg);
 	my $vmid = $jobcfg->{guest};
 	$used_tids->{$vmid}->{$tid} = 1
-	    if defined($vms->{ids}->{$vmid}); # && $vms->{ids}->{$vmid}->{node} eq $local_node;
+	    if defined($vms->{ids}->{$vmid}) && $vms->{ids}->{$vmid}->{node} eq $local_node;
     }
 
     my $purge_state = sub {
