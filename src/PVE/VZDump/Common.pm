@@ -242,6 +242,7 @@ my $confdesc = {
 	    "future. Needs to be a single line, newline and backslash need to be escaped as '\\n' ".
 	    "and '\\\\' respectively.",
 	requires => 'storage',
+	maxLength => 1024,
 	optional => 1,
     },
     protected => {
