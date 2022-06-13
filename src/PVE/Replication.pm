@@ -36,10 +36,7 @@ sub find_common_replication_snapshot {
     my $last_sync_snapname =
 	PVE::ReplicationState::replication_snapshot_name($jobid, $last_sync);
 
-    # test if we have a replication_ snapshot from last sync
-    # and remove all other/stale replication snapshots
-
-    my $last_snapshots =
+    my $local_snapshots =
 	prepare($storecfg, $volumes, $jobid, $last_sync, $parent_snapname, $logfunc);
 
     # prepare remote side
@@ -58,7 +55,7 @@ sub find_common_replication_snapshot {
     my $base_snapshots = {};
 
     foreach my $volid (@$volumes) {
-	my $local_info = $last_snapshots->{$volid};
+	my $local_info = $local_snapshots->{$volid};
 	my $remote_info = $remote_snapshots->{$volid};
 
 	if (defined($local_info) && defined($remote_info)) {
@@ -103,7 +100,7 @@ sub find_common_replication_snapshot {
 	}
     }
 
-    return ($base_snapshots, $last_snapshots, $last_sync_snapname);
+    return ($base_snapshots, $local_snapshots, $last_sync_snapname);
 }
 
 sub remote_prepare_local_job {
@@ -172,7 +169,7 @@ sub prepare {
 	$prefix = '__replicate_';
     }
 
-    my $last_snapshots = {};
+    my $local_snapshots = {};
     my $cleaned_replicated_volumes = {};
     foreach my $volid (@$volids) {
 	my $info = PVE::Storage::volume_snapshot_info($storecfg, $volid);
@@ -200,12 +197,12 @@ sub prepare {
 		    $logfunc->("delete stale replication snapshot error: $err");
 		}
 	    } else {
-		$last_snapshots->{$volid}->{$snap} = $info->{$snap};
+		$local_snapshots->{$volid}->{$snap} = $info->{$snap};
 	    }
 	}
     }
 
-    return wantarray ? ($last_snapshots, $cleaned_replicated_volumes) : $last_snapshots;
+    return wantarray ? ($local_snapshots, $cleaned_replicated_volumes) : $local_snapshots;
 }
 
 sub replicate_volume {
@@ -291,7 +288,7 @@ sub replicate {
 
     my $ssh_info = PVE::SSHInfo::get_ssh_info($jobcfg->{target}, $migration_network);
 
-    my ($base_snapshots, $last_snapshots, $last_sync_snapname) = find_common_replication_snapshot(
+    my ($base_snapshots, $local_snapshots, $last_sync_snapname) = find_common_replication_snapshot(
 	$ssh_info, $jobid, $vmid, $storecfg, $sorted_volids, $state->{storeid_list}, $last_sync, $conf, $logfunc);
 
     my $storeid_hash = {};
@@ -373,7 +370,7 @@ sub replicate {
     PVE::ReplicationState::record_sync_end($jobcfg, $state, $start_time);
 
     # remove old snapshots because they are no longer needed
-    $cleanup_local_snapshots->($last_snapshots, $last_sync_snapname);
+    $cleanup_local_snapshots->($local_snapshots, $last_sync_snapname);
 
     eval {
 	remote_finalize_local_job($ssh_info, $jobid, $vmid, $sorted_volids, $start_time, $logfunc);
