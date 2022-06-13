@@ -153,9 +153,9 @@ sub remote_finalize_local_job {
     PVE::Tools::run_command($cmd, outfunc => $logger, errfunc => $logger);
 }
 
-# Finds all local snapshots and removes replication snapshots not matching $last_sync. Use
-# last_sync=0 (or undef) to prevent removal (useful if VM was stolen). Use last_sync=1 to remove all
-# replication snapshots (limited to job if specified).
+# Finds all local snapshots and removes replication snapshots not matching $last_sync after checking
+# that it is present. Use last_sync=0 (or undef) to prevent removal (useful if VM was stolen). Use
+# last_sync=1 to remove all replication snapshots (limited to job if specified).
 sub prepare {
     my ($storecfg, $volids, $jobid, $last_sync, $parent_snapname, $logfunc) = @_;
 
@@ -173,12 +173,19 @@ sub prepare {
     my $cleaned_replicated_volumes = {};
     foreach my $volid (@$volids) {
 	my $info = PVE::Storage::volume_snapshot_info($storecfg, $volid);
+
+	my $removal_ok = !defined($snapname) || $info->{$snapname};
+	$removal_ok = 0 if $last_sync == 0; # last_sync=0 if the VM was stolen, don't remove!
+	$removal_ok = 1 if $last_sync == 1; # last_sync=1 is a special value used to remove all
+	$logfunc->("expected snapshot $snapname not present for $volid, not removing others")
+	    if !$removal_ok && $last_sync > 1;
+
 	for my $snap (keys $info->%*) {
 	    if ( # check if it's a stale replication snapshot
 		!(defined($snapname) && $snap eq $snapname) &&
 		!(defined($parent_snapname) && $snap eq $parent_snapname) &&
 		$snap =~ m/^\Q$prefix\E/ &&
-		$last_sync != 0 # last_sync is 0 if the VM was stolen
+		$removal_ok
 	    ) {
 		$logfunc->("delete stale replication snapshot '$snap' on $volid");
 		eval {
