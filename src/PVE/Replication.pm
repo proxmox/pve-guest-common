@@ -270,6 +270,7 @@ sub replicate {
 	if ($remove_job eq 'full' && $jobcfg->{target} ne $local_node) {
 	    # remove all remote volumes
 	    my @store_list = map { (PVE::Storage::parse_volume_id($_))[0] } @$sorted_volids;
+	    push @store_list, @{$state->{storeid_list}};
 
 	    my %hash = map { $_ => 1 } @store_list;
 
