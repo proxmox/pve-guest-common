@@ -156,8 +156,9 @@ sub remote_finalize_local_job {
     PVE::Tools::run_command($cmd, outfunc => $logger, errfunc => $logger);
 }
 
-# finds local replication snapshots from $last_sync
-# and removes all replication snapshots with other time stamps
+# Finds all local snapshots and removes replication snapshots not matching $last_sync. Use
+# last_sync=0 (or undef) to prevent removal (useful if VM was stolen). Use last_sync=1 to remove all
+# replication snapshots (limited to job if specified).
 sub prepare {
     my ($storecfg, $volids, $jobid, $last_sync, $parent_snapname, $logfunc) = @_;
 
