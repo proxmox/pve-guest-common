@@ -177,16 +177,21 @@ sub prepare {
 	my $removal_ok = !defined($snapname) || $info->{$snapname};
 	$removal_ok = 0 if $last_sync == 0; # last_sync=0 if the VM was stolen, don't remove!
 	$removal_ok = 1 if $last_sync == 1; # last_sync=1 is a special value used to remove all
+
+	# check if it's a replication snapshot with the same $prefix but not the $last_sync one
+	my $potentially_stale = sub {
+	    my ($snap) = @_;
+
+	    return 0 if defined($snapname) && $snap eq $snapname;
+	    return 0 if defined($parent_snapname) && $snap eq $parent_snapname;
+	    return $snap =~ m/^\Q$prefix\E/;
+	};
+
 	$logfunc->("expected snapshot $snapname not present for $volid, not removing others")
-	    if !$removal_ok && $last_sync > 1;
+	    if !$removal_ok && $last_sync > 1 && grep { $potentially_stale->($_) } keys $info->%*;
 
 	for my $snap (keys $info->%*) {
-	    if ( # check if it's a stale replication snapshot
-		!(defined($snapname) && $snap eq $snapname) &&
-		!(defined($parent_snapname) && $snap eq $parent_snapname) &&
-		$snap =~ m/^\Q$prefix\E/ &&
-		$removal_ok
-	    ) {
+	    if ($potentially_stale->($snap) && $removal_ok) {
 		$logfunc->("delete stale replication snapshot '$snap' on $volid");
 		eval {
 		    PVE::Storage::volume_snapshot_delete($storecfg, $volid, $snap);
