@@ -1,3 +1,19 @@
+libpve-guest-common-perl (4.1-3) bullseye; urgency=medium
+
+  * vzdump config: limit notes template to maximal 1024 characters and update
+    description
+
+  * replication state: purge state from non local guests to avoid issues when
+    guests are moved either manually (not recommended) or by HA on recovery
+
+  * replication state: deterministically order replication jobs, improving
+    handling multiple jobs for the same guest
+
+  * replication: also consider storages from replication state upon removal to
+    prevent left-over volume(s) in some edge cases
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 27 Sep 2022 13:15:50 +0200
+
 libpve-guest-common-perl (4.1-2) bullseye; urgency=medium
 
   * print snapshot tree: clamp indentation length to positive
