@@ -29,16 +29,21 @@ my $dowhash_to_dow = sub {
     return join ',', @da;
 };
 
-my $fixup_prune_backups_option = sub {
+our $PROPERTY_STRINGS = {
+    'performance' => 'backup-performance',
+    'prune-backups' => 'prune-backups',
+};
+
+my sub parse_property_strings {
     my ($opts) = @_;
 
-    return if !defined($opts->{'prune-backups'});
+    for my $opt (keys $PROPERTY_STRINGS->%*) {
+	next if !defined($opts->{$opt});
 
-    $opts->{'prune-backups'} = PVE::JSONSchema::parse_property_string(
-	'prune-backups',
-	$opts->{'prune-backups'}
-    );
-};
+	my $format = $PROPERTY_STRINGS->{$opt};
+	$opts->{$opt} = PVE::JSONSchema::parse_property_string($format, $opts->{$opt});
+    }
+}
 
 # parse crontab style day of week
 sub parse_dow {
@@ -70,6 +75,17 @@ sub parse_dow {
 
     return $res;
 };
+
+PVE::JSONSchema::register_format('backup-performance', {
+    'max-workers' => {
+	description => "Applies to VMs. Allow up to this many IO workers at the same time.",
+	type => 'integer',
+	minimum => 1,
+	maximum => 256,
+	default => 16,
+	optional => 1,
+    },
+});
 
 my $confdesc = {
     vmid => {
@@ -196,6 +212,12 @@ my $confdesc = {
 	maximum => 8,
 	default => 7,
     },
+    performance => {
+	type => 'string',
+	description => "Other performance-related settings.",
+	format => 'backup-performance',
+	optional => 1,
+    },
     lockwait => {
 	type => 'integer',
 	description => "Maximal time to wait for the global lock (minutes).",
@@ -311,7 +333,7 @@ sub parse_vzdump_cron_config {
 		$opts->{starttime} = sprintf "%02d:%02d", $hour, $minute;
 		$opts->{dow} = &$dowhash_to_dow($dowhash);
 
-		$fixup_prune_backups_option->($opts); # parse the property string
+		parse_property_strings($opts);
 
 		push @$jobs, $opts;
 	    };
@@ -402,8 +424,8 @@ sub command_line {
 	    }
 	} else {
 	    $v = join(",", PVE::Tools::split_list($v)) if $p eq 'mailto';
-	    $v = PVE::JSONSchema::print_property_string($v, 'prune-backups')
-		if $p eq 'prune-backups';
+	    $v = PVE::JSONSchema::print_property_string($v, $PROPERTY_STRINGS->{$p})
+		if $PROPERTY_STRINGS->{$p};
 
 	    $cmd .= " --$p " . PVE::Tools::shellquote($v) if defined($v) && $v ne '';
 	}
