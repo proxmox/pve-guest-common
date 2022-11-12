@@ -10,9 +10,12 @@ use PVE::Storage;
 use PVE::Cluster qw(cfs_register_file);
 use PVE::JSONSchema qw(get_standard_option);
 
-cfs_register_file('vzdump.cron',
-		  \&parse_vzdump_cron_config,
-		  \&write_vzdump_cron_config);
+# NOTE: this is the legacy config, nowadays jobs.cfg is used (handled in pve-manager)
+cfs_register_file(
+    'vzdump.cron',
+    \&parse_vzdump_cron_config,
+    \&write_vzdump_cron_config,
+);
 
 my $dowhash_to_dow = sub {
     my ($d, $num) = @_;
