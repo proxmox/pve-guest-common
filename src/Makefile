@@ -17,6 +17,7 @@ install: PVE
 	install -d ${PERL5DIR}/PVE/VZDump
 	install -m 0644 PVE/VZDump/Plugin.pm ${PERL5DIR}/PVE/VZDump/
 	install -m 0644 PVE/VZDump/Common.pm ${PERL5DIR}/PVE/VZDump/
+	install -m 0644 PVE/VZDump/JobBase.pm ${PERL5DIR}/PVE/VZDump/
 
 .PHONY: check
 check:
