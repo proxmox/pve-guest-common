@@ -1,3 +1,11 @@
+libpve-guest-common-perl (4.2-1) bullseye; urgency=medium
+
+  * add VZDump::JobBase, split out from manager
+
+  * vzdump: handle new jobs.cfg when removing VMIDs from backup jobs
+
+ -- Proxmox Support Team <support@proxmox.com>  Sat, 12 Nov 2022 16:52:04 +0100
+
 libpve-guest-common-perl (4.1-4) bullseye; urgency=medium
 
   * vzdump: add 'performance' property string as a setting
