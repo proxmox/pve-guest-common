@@ -176,30 +176,24 @@ sub remove_vmid_from_list {
     return join(',', grep { $_ ne $rm_vmid } PVE::Tools::split_list($list));
 }
 
-sub remove_vmid_from_jobs {
-    my ($jobs, $exclude_vmid) = @_;
+sub remove_vmid_from_job {
+    my ($job, $exclude_vmid) = @_;
 
-    my $updated_jobs = [];
-    foreach my $job (@$jobs) {
-	if (defined $job->{vmid}) {
-	    my $list = remove_vmid_from_list($job->{vmid}, $exclude_vmid);
-	    if ($list) {
-		$job->{vmid} = $list;
-		push @$updated_jobs, $job;
-	    }
-	} elsif (defined $job->{exclude}) {
-	    my $list = remove_vmid_from_list($job->{exclude}, $exclude_vmid);
-	    if ($list) {
-		$job->{exclude} = $list;
-	    } else {
-		delete $job->{exclude};
-	    }
-	    push @$updated_jobs, $job;
+    if (defined $job->{vmid}) {
+	if (my $list = remove_vmid_from_list($job->{vmid}, $exclude_vmid)) {
+	    $job->{vmid} = $list;
 	} else {
-	    push @$updated_jobs, $job;
+	    return undef;
+	}
+    } elsif (defined $job->{exclude}) {
+	my $list = remove_vmid_from_list($job->{exclude}, $exclude_vmid);
+	if ($list) {
+	    $job->{exclude} = $list;
+	} else {
+	    delete $job->{exclude};
 	}
     }
-    return $updated_jobs;
+    return $job;
 }
 
 sub remove_vmid_from_backup_jobs {
@@ -208,10 +202,17 @@ sub remove_vmid_from_backup_jobs {
     cfs_lock_file('vzdump.cron', undef, sub {
 	my $vzdump_jobs = cfs_read_file('vzdump.cron');
 	my $jobs = $vzdump_jobs->{jobs} || [];
-	$vzdump_jobs->{jobs} = remove_vmid_from_jobs($jobs, $vmid);
+
+	my $updated_jobs = [];
+	foreach my $job ($jobs->@*) {
+	    $job = remove_vmid_from_job($job, $vmid);
+	    push @$updated_jobs, $job if $job;
+	}
+	$vzdump_jobs->{jobs} = $updated_jobs;
+
 	cfs_write_file('vzdump.cron', $vzdump_jobs);
     });
-    die "$@" if ($@);
+    die "$@" if $@;
 }
 
 1;
