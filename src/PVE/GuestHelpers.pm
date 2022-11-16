@@ -3,6 +3,7 @@ package PVE::GuestHelpers;
 use strict;
 use warnings;
 
+use PVE::Exception qw(raise_perm_exc);
 use PVE::Tools;
 use PVE::Storage;
 
@@ -11,7 +12,14 @@ use Scalar::Util qw(weaken);
 
 use base qw(Exporter);
 
-our @EXPORT_OK = qw(safe_string_ne safe_boolean_ne safe_num_ne typesafe_ne);
+our @EXPORT_OK = qw(
+assert_tag_permissions
+get_allowed_tags
+safe_boolean_ne
+safe_num_ne
+safe_string_ne
+typesafe_ne
+);
 
 # We use a separate lock to block migration while a replication job
 # is running.
@@ -244,6 +252,95 @@ sub config_with_pending_array {
     }
 
     return $res;
+}
+
+# returns the allowed tags for the given user
+# in scalar context, returns the list of allowed tags that exist
+# in list context, returns a tuple of allowed tags, privileged tags, and if freeform is enabled
+#
+# first parameter is a bool if the user is 'privileged' (normally Sys.Modify on /)
+# second parameter is a closure which takes the vmid. should check if the user can see the vm tags
+sub get_allowed_tags {
+    my ($rpcenv, $user, $privileged_user) = @_;
+
+    $privileged_user //= ($rpcenv->check($user, '/', ['Sys.Modify'], 1) // 0);
+
+    my $dc = PVE::Cluster::cfs_read_file('datacenter.cfg');
+
+    my $allowed_tags = {};
+    my $privileged_tags = {};
+    if (my $tags = $dc->{'registered-tags'}) {
+	$privileged_tags->{$_} = 1 for $tags->@*;
+    }
+    my $user_tag_privs = $dc->{'user-tag-access'} // {};
+    my $user_allow = $user_tag_privs->{'user-allow'} // 'free';
+    my $freeform = $user_allow eq 'free';
+
+    if ($user_allow ne 'none' || $privileged_user) {
+	$allowed_tags->{$_} = 1 for ($user_tag_privs->{'user-allow-list'} // [])->@*;
+    }
+
+    if ($user_allow eq 'free' || $user_allow eq 'existing' || $privileged_user) {
+	my $props = PVE::Cluster::get_guest_config_properties(['tags']);
+	for my $vmid (keys $props->%*) {
+	    next if !$privileged_user && !$rpcenv->check_vm_perm($user, $vmid, undef, ['VM.Audit'], 0, 1);
+	    $allowed_tags->{$_} = 1 for PVE::Tools::split_list($props->{$vmid}->{tags});
+	}
+    }
+
+    if ($privileged_user) {
+	$allowed_tags->{$_} = 1 for keys $privileged_tags->%*;
+    } else {
+	delete $allowed_tags->{$_} for keys $privileged_tags->%*;
+    }
+
+    return wantarray ? ($allowed_tags, $privileged_tags, $freeform) : $allowed_tags;
+}
+
+# checks the permissions for setting/updating/removing tags for guests
+# tagopt_old and tagopt_new expect the tags as they are in the config
+#
+# either returns gracefully or raises a permission exception
+sub assert_tag_permissions {
+    my ($vmid, $tagopt_old, $tagopt_new, $rpcenv, $authuser) = @_;
+
+    my $allowed_tags;
+    my $privileged_tags;
+    my $freeform;
+    my $privileged_user = $rpcenv->check($authuser, '/', ['Sys.Modify'], 1) // 0;
+
+    $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Options']);
+
+    my $check_single_tag = sub {
+	my ($tag) = @_;
+	return if $privileged_user;
+
+	if (!defined($allowed_tags) && !defined($privileged_tags) && !defined($freeform)) {
+	    ($allowed_tags, $privileged_tags, $freeform) = get_allowed_tags(
+		$rpcenv,
+		$authuser,
+		$privileged_user,
+	    );
+	}
+
+	if ((!$allowed_tags->{$tag} && !$freeform) || $privileged_tags->{$tag}) {
+	    raise_perm_exc("/, Sys.Modify for modifying tag '$tag'");
+	}
+
+	return;
+    };
+
+    my $old_tags = {};
+    my $new_tags = {};
+    my $all_tags = {};
+
+    $all_tags->{$_} = $old_tags->{$_} += 1 for PVE::Tools::split_list($tagopt_old // '');
+    $all_tags->{$_} = $new_tags->{$_} += 1 for PVE::Tools::split_list($tagopt_new // '');
+
+    for my $tag (keys $all_tags->%*) {
+	next if ($new_tags->{$tag} // 0) == ($old_tags->{$tag} // 0);
+	$check_single_tag->($tag);
+    }
 }
 
 1;
