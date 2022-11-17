@@ -1,3 +1,9 @@
+libpve-guest-common-perl (4.2-2) bullseye; urgency=medium
+
+  * add tag related helper methods
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 17 Nov 2022 13:13:57 +0100
+
 libpve-guest-common-perl (4.2-1) bullseye; urgency=medium
 
   * add VZDump::JobBase, split out from manager
