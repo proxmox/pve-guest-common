@@ -4,7 +4,7 @@ use strict;
 use warnings;
 
 use PVE::Exception qw(raise_perm_exc);
-use PVE::Tools;
+use PVE::Tools qw(split_list);
 use PVE::Storage;
 
 use POSIX qw(strftime);
@@ -265,14 +265,14 @@ sub get_allowed_tags {
 
     $privileged_user //= ($rpcenv->check($user, '/', ['Sys.Modify'], 1) // 0);
 
-    my $dc = PVE::Cluster::cfs_read_file('datacenter.cfg');
+    my $datacenter_config = PVE::Cluster::cfs_read_file('datacenter.cfg');
 
     my $allowed_tags = {};
     my $privileged_tags = {};
-    if (my $tags = $dc->{'registered-tags'}) {
+    if (my $tags = $datacenter_config->{'registered-tags'}) {
 	$privileged_tags->{$_} = 1 for $tags->@*;
     }
-    my $user_tag_privs = $dc->{'user-tag-access'} // {};
+    my $user_tag_privs = $datacenter_config->{'user-tag-access'} // {};
     my $user_allow = $user_tag_privs->{'user-allow'} // 'free';
     my $freeform = $user_allow eq 'free';
 
@@ -284,7 +284,7 @@ sub get_allowed_tags {
 	my $props = PVE::Cluster::get_guest_config_properties(['tags']);
 	for my $vmid (keys $props->%*) {
 	    next if !$privileged_user && !$rpcenv->check_vm_perm($user, $vmid, undef, ['VM.Audit'], 0, 1);
-	    $allowed_tags->{$_} = 1 for PVE::Tools::split_list($props->{$vmid}->{tags});
+	    $allowed_tags->{$_} = 1 for split_list($props->{$vmid}->{tags});
 	}
     }
 
@@ -304,23 +304,17 @@ sub get_allowed_tags {
 sub assert_tag_permissions {
     my ($vmid, $tagopt_old, $tagopt_new, $rpcenv, $authuser) = @_;
 
-    my $allowed_tags;
-    my $privileged_tags;
-    my $freeform;
-    my $privileged_user = $rpcenv->check($authuser, '/', ['Sys.Modify'], 1) // 0;
-
     $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Options']);
 
+    my $privileged_user = $rpcenv->check($authuser, '/', ['Sys.Modify'], 1) // 0;
+
+    my ($allowed_tags, $privileged_tags, $freeform);
     my $check_single_tag = sub {
 	my ($tag) = @_;
 	return if $privileged_user;
 
-	if (!defined($allowed_tags) && !defined($privileged_tags) && !defined($freeform)) {
-	    ($allowed_tags, $privileged_tags, $freeform) = get_allowed_tags(
-		$rpcenv,
-		$authuser,
-		$privileged_user,
-	    );
+	if (!defined($allowed_tags // $privileged_tags // $freeform)) { # cache
+	    ($allowed_tags, $privileged_tags, $freeform) = get_allowed_tags($rpcenv, $authuser, $privileged_user);
 	}
 
 	if ((!$allowed_tags->{$tag} && !$freeform) || $privileged_tags->{$tag}) {
@@ -330,12 +324,10 @@ sub assert_tag_permissions {
 	return;
     };
 
-    my $old_tags = {};
-    my $new_tags = {};
-    my $all_tags = {};
+    my ($old_tags, $new_tags, $all_tags) = ({}, {}, {});
 
-    $all_tags->{$_} = $old_tags->{$_} += 1 for PVE::Tools::split_list($tagopt_old // '');
-    $all_tags->{$_} = $new_tags->{$_} += 1 for PVE::Tools::split_list($tagopt_new // '');
+    $all_tags->{$_} = $old_tags->{$_} += 1 for split_list($tagopt_old // '');
+    $all_tags->{$_} = $new_tags->{$_} += 1 for split_list($tagopt_new // '');
 
     for my $tag (keys $all_tags->%*) {
 	next if ($new_tags->{$tag} // 0) == ($old_tags->{$tag} // 0);
