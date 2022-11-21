@@ -335,4 +335,35 @@ sub assert_tag_permissions {
     }
 }
 
+sub get_unique_tags {
+    my ($tags, $no_join_result) = @_;
+
+    $tags = [ split_list($tags // '') ] if ref($tags) ne 'ARRAY';
+    return !$no_join_result ? '': [] if !scalar($tags->@*);
+
+    my $datacenter_config = PVE::Cluster::cfs_read_file('datacenter.cfg');
+    my $tag_style_config = $datacenter_config->{'tag-style'} // {};
+    my $case_sensitive = !!$tag_style_config->{'case-sensitive'};
+
+    my $seen_tags = {};
+    my $res = [];
+    if (!defined($tag_style_config->{ordering}) || $tag_style_config->{ordering} ne 'config') {
+	for my $tag ( sort { $case_sensitive ? $a cmp $b : lc($a) cmp lc($b) } $tags->@*) {
+	    $tag = lc($tag) if !$case_sensitive;
+	    next if $seen_tags->{$tag};
+	    $seen_tags->{$tag} = 1;
+	    push @$res, $tag;
+	}
+    } else {
+	for my $tag ($tags->@*) {
+	    $tag = lc($tag) if !$case_sensitive;
+	    next if $seen_tags->{$tag};
+	    $seen_tags->{$tag} = 1;
+	    push @$res, $tag;
+	}
+    }
+
+    return !$no_join_result ? join(';', $res->@*) : $res;
+}
+
 1;
