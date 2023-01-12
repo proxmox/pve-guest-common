@@ -19,15 +19,10 @@ my $msg2text = sub {
     return '' if !$msg;
 
     my $prefix = strftime("%F %H:%M:%S", localtime);
+    $prefix .= " ERROR:" if $level eq 'err';
 
     my $res = '';
-    foreach my $line (split (/\n/, $msg)) {
-	if ($level eq 'err') {
-	    $res .= "$prefix ERROR: $line\n";
-	} else {
-	    $res .= "$prefix $line\n";
-	}
-    }
+    $res .= "$prefix $_\n" for split (/\n/, $msg);
 
     return $res;
 };
