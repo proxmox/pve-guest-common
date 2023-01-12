@@ -2,13 +2,15 @@ package PVE::AbstractMigrate;
 
 use strict;
 use warnings;
-use POSIX qw(strftime);
+
 use JSON;
-use PVE::Tools;
+use POSIX qw(strftime);
+
 use PVE::Cluster;
 use PVE::DataCenterConfig;
 use PVE::ReplicationState;
 use PVE::SSHInfo;
+use PVE::Tools;
 
 my $msg2text = sub {
     my ($level, $msg) = @_;
