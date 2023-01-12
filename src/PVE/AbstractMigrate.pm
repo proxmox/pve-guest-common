@@ -16,7 +16,6 @@ my $msg2text = sub {
     my ($level, $msg) = @_;
 
     chomp $msg;
-
     return '' if !$msg;
 
     my $res = '';
@@ -38,10 +37,9 @@ sub log {
     my ($self, $level, $msg) = @_;
 
     chomp $msg;
-
     return if !$msg;
 
-    print &$msg2text($level, $msg);
+    print $msg2text->($level, $msg);
 }
 
 sub cmd {
