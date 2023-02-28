@@ -1165,6 +1165,15 @@ sub snapshot_rollback {
     $class->lock_config($vmid, $updatefn);
 }
 
+# Calculate a derived property from a configuration. Derived properties are:
+# max-cpu - maximum amount of CPUs the guest can currently use (can be a fraction)
+# max-memory - maximum amount of memory the guest can currently use
+sub get_derived_property {
+    my ($class, $conf, $name) = @_;
+
+    die "implement me - abstract method\n";
+}
+
 # bash completion helper
 
 sub snapshot_list {
