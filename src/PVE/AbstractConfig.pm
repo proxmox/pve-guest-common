@@ -485,8 +485,8 @@ sub foreach_volume {
 }
 
 # $volume_map is a hash of 'old_volid' => 'new_volid' pairs.
-# This method replaces 'old_volid' by 'new_volid' throughout
-# the config including snapshots and unused and vmstate volumes
+# This method replaces 'old_volid' by 'new_volid' throughout the config including snapshots, pending
+# changes, unused volumes and vmstate volumes.
 sub update_volume_ids {
     my ($class, $conf, $volume_map) = @_;
 
@@ -512,6 +512,8 @@ sub update_volume_ids {
 	my $snap_conf = $conf->{snapshots}->{$snap};
 	$class->foreach_volume_full($snap_conf, $opts, $do_replace, $snap_conf);
     }
+
+    $class->foreach_volume_full($conf->{pending}, $opts, $do_replace, $conf->{pending});
 }
 
 # Returns whether the template parameter is set in $conf.
