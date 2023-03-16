@@ -1,3 +1,11 @@
+libpve-guest-common-perl (4.2-4) bullseye; urgency=medium
+
+  * fix #4572: config: also update volume IDs in pending section
+
+  * config: ensure definedness for iterating pending & snapshot volumes
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 16 Mar 2023 11:54:00 +0100
+
 libpve-guest-common-perl (4.2-3) bullseye; urgency=medium
 
   * tag helpers: add get_unique_tags method for filtering out duplicates
