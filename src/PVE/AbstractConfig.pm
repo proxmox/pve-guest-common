@@ -508,12 +508,17 @@ sub update_volume_ids {
     };
 
     $class->foreach_volume_full($conf, $opts, $do_replace, $conf);
-    foreach my $snap (keys %{$conf->{snapshots}}) {
-	my $snap_conf = $conf->{snapshots}->{$snap};
-	$class->foreach_volume_full($snap_conf, $opts, $do_replace, $snap_conf);
+
+    if (defined($conf->{snapshots})) {
+	for my $snap (keys %{$conf->{snapshots}}) {
+	    my $snap_conf = $conf->{snapshots}->{$snap};
+	    $class->foreach_volume_full($snap_conf, $opts, $do_replace, $snap_conf);
+	}
     }
 
-    $class->foreach_volume_full($conf->{pending}, $opts, $do_replace, $conf->{pending});
+    if (defined($conf->{pending})) {
+	$class->foreach_volume_full($conf->{pending}, $opts, $do_replace, $conf->{pending});
+    }
 }
 
 # Returns whether the template parameter is set in $conf.
