@@ -202,7 +202,7 @@ my $confdesc = {
     },
     bwlimit => {
 	type => 'integer',
-	description => "Limit I/O bandwidth (KBytes per second).",
+	description => "Limit I/O bandwidth (in KiB/s).",
 	optional => 1,
 	minimum => 0,
 	default => 0,
