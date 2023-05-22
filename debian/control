@@ -7,7 +7,7 @@ Build-Depends: debhelper (>= 12~),
                libpve-common-perl,
                libpve-storage-perl (>= 7.2-6),
                pve-cluster,
-Standards-Version: 4.5.1
+Standards-Version: 4.6.2
 Homepage: https://www.proxmox.com
 
 Package: libpve-guest-common-perl
