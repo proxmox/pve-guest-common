@@ -34,9 +34,8 @@ upload: $(DEB)
 	tar cf - $(DEB) | ssh repoman@repo.proxmox.com -- upload --product pve --dist $(UPLOAD_DIST)
 
 distclean: clean
-
 clean:
-	rm -rf $(BUILDDIR) *.deb *.dsc *.changes *.buildinfo *.tar.gz
+	rm -rf $(PACKAGE)-[0-9]*/ *.deb *.dsc *.changes *.buildinfo *.build $(PACKAGE)*.tar*
 
 .PHONY: dinstall
 dinstall: $(DEB)
