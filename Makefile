@@ -2,10 +2,10 @@ include /usr/share/dpkg/pkg-info.mk
 
 PACKAGE=libpve-guest-common-perl
 
-DEB=$(PACKAGE)_$(DEB_VERSION_UPSTREAM_REVISION)_all.deb
-DSC=$(PACKAGE)_$(DEB_VERSION_UPSTREAM_REVISION).dsc
+DEB=$(PACKAGE)_$(DEB_VERSION)_all.deb
+DSC=$(PACKAGE)_$(DEB_VERSION).dsc
 
-BUILDDIR ?= $(PACKAGE)-$(DEB_VERSION_UPSTREAM)
+BUILDDIR ?= $(PACKAGE)-$(DEB_VERSION)
 
 all:
 
