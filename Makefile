@@ -23,10 +23,15 @@ $(DEB): $(BUILDDIR)
 	lintian $(DEB)
 
 .PHONY: dsc
-dsc: $(DSC)
+dsc:
+	$(MAKE) $(DSC)
+	lintian $(DSC)
+
 $(DSC): $(BUILDDIR)
 	cd $(BUILDDIR); dpkg-buildpackage -S -us -uc -d -nc
-	lintian $(DSC)
+
+sbuild: $(DSC)
+	sbuild $(DSC)
 
 .PHONY: upload
 upload: UPLOAD_DIST ?= $(DEB_DISTRIBUTION)
