@@ -10,10 +10,11 @@ BUILDDIR ?= $(PACKAGE)-$(DEB_VERSION)
 all:
 
 $(BUILDDIR):
-	rm -rf $(BUILDDIR)
-	cp -a src $(BUILDDIR)
-	cp -a debian $(BUILDDIR)/
-	echo "git clone git://git.proxmox.com/git/pve-guest-common.git\\ngit checkout $(GITVERSION)" > $(BUILDDIR)/debian/SOURCE
+	rm -rf $@ $@.tmp
+	cp -a src $@.tmp
+	cp -a debian $@.tmp/
+	echo "git clone git://git.proxmox.com/git/pve-guest-common.git\\ngit checkout $(GITVERSION)" > $@.tmp/debian/SOURCE
+	mv $@.tmp $@
 
 .PHONY: deb
 deb: $(DEB)
