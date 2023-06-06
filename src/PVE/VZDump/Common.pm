@@ -154,11 +154,14 @@ my $confdesc = {
 	optional => 1,
     },
     'exclude-path' => {
-	type => 'string', format => 'string-alist',
+	type => 'array',
 	description => "Exclude certain files/directories (shell globs)." .
 	    " Paths starting with '/' are anchored to the container's root, " .
 	    " other paths match relative to each subdirectory.",
 	optional => 1,
+	items => {
+	    type => 'string',
+	},
     },
     mailto => {
 	type => 'string',
@@ -422,7 +425,7 @@ sub command_line {
 	my $v = $param->{$p};
 	my $pd = $confdesc->{$p} || die "no such vzdump option '$p'\n";
 	if ($p eq 'exclude-path') {
-	    foreach my $path (split(/\0/, $v || '')) {
+	    foreach my $path (@$v) {
 		$cmd .= " --$p " . PVE::Tools::shellquote($path);
 	    }
 	} else {
