@@ -14,6 +14,9 @@ install: PVE
 	install -m 0644 PVE/Replication.pm ${PERL5DIR}/PVE/
 	install -m 0644 PVE/StorageTunnel.pm ${PERL5DIR}/PVE/
 	install -m 0644 PVE/Tunnel.pm ${PERL5DIR}/PVE/
+	install -d ${PERL5DIR}/PVE/Mapping
+	install -m 0644 PVE/Mapping/PCI.pm ${PERL5DIR}/PVE/Mapping/
+	install -m 0644 PVE/Mapping/USB.pm ${PERL5DIR}/PVE/Mapping/
 	install -d ${PERL5DIR}/PVE/VZDump
 	install -m 0644 PVE/VZDump/Plugin.pm ${PERL5DIR}/PVE/VZDump/
 	install -m 0644 PVE/VZDump/Common.pm ${PERL5DIR}/PVE/VZDump/
