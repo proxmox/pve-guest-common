@@ -10,10 +10,17 @@ use PVE::Storage;
 use POSIX qw(strftime);
 use Scalar::Util qw(weaken);
 
+my $have_sdn;
+eval {
+    require PVE::Network::SDN;
+    $have_sdn = 1;
+};
+
 use base qw(Exporter);
 
 our @EXPORT_OK = qw(
 assert_tag_permissions
+check_vnet_access
 get_allowed_tags
 safe_boolean_ne
 safe_num_ne
@@ -364,6 +371,49 @@ sub get_unique_tags {
     }
 
     return !$no_join_result ? join(';', $res->@*) : $res;
+}
+
+my sub get_tags_from_trunk {
+    my ($trunks) = @_;
+
+    my $res = {};
+    my @trunks_array = split /;/, $trunks;
+    for my $trunk (@trunks_array) {
+	my ($tag, $tag_end) = split /-/, $trunk;
+	if($tag_end && $tag_end > $tag) {
+	    my @tags = ($tag..$tag_end);
+	    $res->{$_} = 1 for @tags;
+	} else {
+	    $res->{$tag} = 1;
+	}
+    }
+    return $res;
+}
+
+sub check_vnet_access {
+    my ($rpcenv, $authuser, $vnet, $tag, $trunks) = @_;
+
+    my $zone = 'localnetwork';
+
+    if ($have_sdn) {
+	my $vnet_cfg = PVE::Network::SDN::Vnets::config();
+	if (defined(my $vnet = PVE::Network::SDN::Vnets::sdn_vnets_config($vnet_cfg, $vnet, 1))) {
+	    $zone = $vnet->{zone};
+	}
+    }
+
+    # if a tag is defined, test if user have a specific access to the vlan (or propagated from full bridge acl)
+    $rpcenv->check($authuser, "/sdn/zones/$zone/$vnet/$tag", ['SDN.Use']) if $tag;
+    # check each vlan access from trunk
+    if ($trunks) {
+	my $tags = get_tags_from_trunk($trunks);
+	for my $tag (sort keys %$tags) {
+	    $rpcenv->check($authuser, "/sdn/zones/$zone/$vnet/$tag", ['SDN.Use']);
+	}
+    }
+    # if no tag, test if user have access to full bridge.
+    $rpcenv->check($authuser, "/sdn/zones/$zone/$vnet", ['SDN.Use'])
+	if !($tag || $trunks);
 }
 
 1;
