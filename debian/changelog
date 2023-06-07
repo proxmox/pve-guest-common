@@ -1,3 +1,13 @@
+libpve-guest-common-perl (5.0.2) bookworm; urgency=medium
+
+  * add helper for checking access to common bridges and SDN vNets for guests
+
+  * add PCI/USB Mapping configs
+
+  * vzdump: config: improve description of ionice setting
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 07 Jun 2023 19:21:11 +0200
+
 libpve-guest-common-perl (5.0.1) bookworm; urgency=medium
 
   * vzdump: improve description of bwlimit parameter
