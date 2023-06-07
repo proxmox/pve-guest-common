@@ -14,7 +14,7 @@ Package: libpve-guest-common-perl
 Architecture: all
 Depends: libpve-access-control,
          libpve-cluster-perl (>= 7-2-3),
-         libpve-common-perl (>= 7.2-6),
+         libpve-common-perl (>= 8.0.2),
          libpve-storage-perl (>= 7.0-14),
          proxmox-websocket-tunnel,
          pve-cluster,
