@@ -212,7 +212,10 @@ my $confdesc = {
     },
     ionice => {
 	type => 'integer',
-	description => "Set CFQ ionice priority.",
+	description => "Set IO priority when using the BFQ scheduler. For snapshot and suspend "
+	    ."mode backups of VMs, this only affects the compressor. A value of 8 means the idle "
+	    ."priority is used, otherwise the best-effort priority is used with the specified "
+	    ."value.",
 	optional => 1,
 	minimum => 0,
 	maximum => 8,
