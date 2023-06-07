@@ -1,3 +1,9 @@
+libpve-guest-common-perl (5.0.3) bookworm; urgency=medium
+
+  * abstract config: add method to calculate derived properties from a config
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 07 Jun 2023 19:35:22 +0200
+
 libpve-guest-common-perl (5.0.2) bookworm; urgency=medium
 
   * add helper for checking access to common bridges and SDN vNets for guests
