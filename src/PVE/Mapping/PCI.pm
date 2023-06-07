@@ -3,11 +3,15 @@ package PVE::Mapping::PCI;
 use strict;
 use warnings;
 
-use PVE::Cluster qw(cfs_register_file cfs_read_file cfs_lock_file cfs_write_file);
-use PVE::INotify;
+use PVE::Cluster qw(
+    cfs_lock_file
+    cfs_read_file
+    cfs_register_file
+    cfs_write_file
+);
+use PVE::INotify ();
 use PVE::JSONSchema qw(get_standard_option parse_property_string);
-use PVE::SectionConfig;
-use PVE::SysFSTools;
+use PVE::SysFSTools ();
 
 use base qw(PVE::SectionConfig);
 
