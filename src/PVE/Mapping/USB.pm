@@ -50,8 +50,8 @@ sub type {
 my $map_fmt = {
     node => get_standard_option('pve-node'),
     'id' => {
-	description => "The vendor and device ID that is expected. If a USB path".
-	" is given, it is only used for detecting hardware changes",
+	description => "The vendor and device ID that is expected. If a USB path"
+	." is given, it is only used for detecting hardware changes",
 	type => 'string',
 	pattern => qr/^[0-9A-Fa-f]{4}:[0-9A-Fa-f]{4}$/,
     },
@@ -73,11 +73,11 @@ my $defaultData = {
     propertyList => {
 	id => {
 	    type => 'string',
-	    description => "The ID of the logical PCI mapping.",
+	    description => "The ID of the logical USB mapping.",
 	    format => 'pve-configid',
 	},
 	description => {
-	    description => "Description of the logical PCI device.",
+	    description => "Description of the logical USB device.",
 	    type => 'string',
 	    optional => 1,
 	    maxLength => 4096,

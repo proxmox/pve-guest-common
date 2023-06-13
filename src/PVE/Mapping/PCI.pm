@@ -52,14 +52,14 @@ my $PCI_RE = "[a-f0-9]{4,}:[a-f0-9]{2}:[a-f0-9]{2}(?:\.[a-f0-9])?";
 my $map_fmt = {
     node => get_standard_option('pve-node'),
     id =>{
-	description => "The vendor and device ID that is expected. Used for".
-	" detecting hardware changes",
+	description => "The vendor and device ID that is expected. Used for"
+	." detecting hardware changes",
 	type => 'string',
 	pattern => qr/^[0-9A-Fa-f]{4}:[0-9A-Fa-f]{4}$/,
     },
     'subsystem-id' => {
-	description => "The subsystem vendor and device ID that is expected. Used".
-	" for detecting hardware changes.",
+	description => "The subsystem vendor and device ID that is expected. Used"
+	." for detecting hardware changes.",
 	type => 'string',
 	pattern => qr/^[0-9A-Fa-f]{4}:[0-9A-Fa-f]{4}$/,
 	optional => 1,
@@ -74,8 +74,8 @@ my $map_fmt = {
     },
     iommugroup => {
 	type => 'integer',
-	description => "The IOMMU group in which the device is to be expected in.".
-	"Used for detecting hardware changes.",
+	description => "The IOMMU group in which the device is to be expected in."
+	." Used for detecting hardware changes.",
 	optional => 1,
     },
     description => {
