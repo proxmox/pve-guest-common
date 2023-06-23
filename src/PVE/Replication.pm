@@ -275,6 +275,9 @@ sub replicate {
     $logfunc->("guest => $guest_name, running => $running");
     $logfunc->("volumes => " . join(',', @$sorted_volids));
 
+    # filter out left-over non-existing/removed storages - avoids error on target
+    $state->{storeid_list} = [ grep { $storecfg->{ids}->{$_} } $state->{storeid_list}->@* ];
+
     if (my $remove_job = $jobcfg->{remove_job}) {
 
 	$logfunc->("start job removal - mode '${remove_job}'");
