@@ -24,7 +24,7 @@ sub debugmsg {
 
     return if !$msg;
 
-    my $level = $log_level->{$mtype} ? $mtype : 'err';
+    my $level = $log_level->{lc($mtype)} ? lc($mtype) : 'err';
     my $pre = $log_level->{$level};
 
     my $timestr = strftime ("%F %H:%M:%S", CORE::localtime);
