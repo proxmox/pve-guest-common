@@ -8,6 +8,8 @@ use POSIX qw(strftime);
 use PVE::Tools qw(file_set_contents file_get_contents);
 use PVE::SafeSyslog;
 use PVE::Cluster qw(cfs_read_file cfs_write_file cfs_lock_file);
+use PVE::RESTEnvironment;
+
 use PVE::VZDump::Common; # register parser/writer for vzdump.cron
 use PVE::VZDump::JobBase; # register *partial* parser/writer for jobs.cfg
 
@@ -32,7 +34,11 @@ sub debugmsg {
     syslog ($level, "$pre $msg") if $syslog;
 
     foreach my $line (split (/\n/, $msg)) {
-	print STDERR "$pre $line\n";
+	if ($level eq 'warn') {
+	    PVE::RESTEnvironment::log_warn($line); # ensure task warn counters are increased
+	} else {
+	    print STDERR "$pre $line\n";
+	}
 	print $logfd "$timestr $pre $line\n" if $logfd;
     }
 }
