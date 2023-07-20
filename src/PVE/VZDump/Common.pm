@@ -167,15 +167,32 @@ my $confdesc = {
 	type => 'string',
 	format => 'email-or-username-list',
 	description => "Comma-separated list of email addresses or users that should" .
-	    " receive email notifications.",
+	    " receive email notifications. Has no effect if the 'notification-target' option " .
+	    " is set at the same time.",
 	optional => 1,
     },
     mailnotification => {
 	type => 'string',
-	description => "Specify when to send an email",
+	description => "Deprecated: use 'notification-policy' instead.",
 	optional => 1,
 	enum => [ 'always', 'failure' ],
 	default => 'always',
+    },
+    'notification-policy' => {
+	type => 'string',
+	description => "Specify when to send a notification",
+	optional => 1,
+	enum => [ 'always', 'failure', 'never'],
+	default => 'always',
+    },
+    'notification-target' => {
+	type => 'string',
+	format => 'pve-configid',
+	description => "Determine the target to which notifications should be sent." .
+	    " Can either be a notification endpoint or a notification group." .
+	    " This option takes precedence over 'mailto', meaning that if both are " .
+	    " set, the 'mailto' option will be ignored.",
+	optional => 1,
     },
     tmpdir => {
 	type => 'string',
