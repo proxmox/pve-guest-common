@@ -1,3 +1,15 @@
+libpve-guest-common-perl (5.0.4) bookworm; urgency=medium
+
+  * minor documentation fixups
+
+  * convert log level to lower-case in logging base method
+
+  * vzdump: use worker aware log_warn from rest environment for warn level
+
+  * vzdump: add options for new notification backend
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 24 Jul 2023 15:21:15 +0200
+
 libpve-guest-common-perl (5.0.3) bookworm; urgency=medium
 
   * abstract config: add method to calculate derived properties from a config
