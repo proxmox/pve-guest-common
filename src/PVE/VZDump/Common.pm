@@ -88,6 +88,15 @@ PVE::JSONSchema::register_format('backup-performance', {
 	default => 16,
 	optional => 1,
     },
+    'pbs-entries-max' => {
+	description => "Applies to container backups sent to PBS. Limits the number of entries "
+	    ."allowed in memory at a given time to avoid unintended OOM situations. Increase it to "
+	    ."enable backups of containers with a large amount of files.",
+	type => 'integer',
+	minimum => 1,
+	default => 1048576,
+	optional => 1,
+    },
 });
 
 my $confdesc = {
