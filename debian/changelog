@@ -1,3 +1,11 @@
+libpve-guest-common-perl (5.0.5) bookworm; urgency=medium
+
+  * replication: avoid passing removed storages to target
+
+  * partially fix #3069: vzdump config schema: add 'pbs-entries-max' property
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 18 Sep 2023 16:47:16 +0200
+
 libpve-guest-common-perl (5.0.4) bookworm; urgency=medium
 
   * minor documentation fixups
