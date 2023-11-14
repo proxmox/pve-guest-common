@@ -175,21 +175,22 @@ my $confdesc = {
     mailto => {
 	type => 'string',
 	format => 'email-or-username-list',
-	description => "Comma-separated list of email addresses or users that should" .
-	    " receive email notifications. Has no effect if the 'notification-target' option " .
-	    " is set at the same time.",
+	description => "Deprecated: Use notification targets/matchers instead." .
+	    " Comma-separated list of email addresses or users that should" .
+	    " receive email notifications.",
 	optional => 1,
     },
     mailnotification => {
 	type => 'string',
-	description => "Deprecated: use 'notification-policy' instead.",
+	description => "Deprecated: use notification targets/matchers instead." .
+	    " Specify when to send a notification mail",
 	optional => 1,
 	enum => [ 'always', 'failure' ],
 	default => 'always',
     },
     'notification-policy' => {
 	type => 'string',
-	description => "Specify when to send a notification",
+	description => "Deprecated: Do not use",
 	optional => 1,
 	enum => [ 'always', 'failure', 'never'],
 	default => 'always',
@@ -197,10 +198,7 @@ my $confdesc = {
     'notification-target' => {
 	type => 'string',
 	format => 'pve-configid',
-	description => "Determine the target to which notifications should be sent." .
-	    " Can either be a notification endpoint or a notification group." .
-	    " This option takes precedence over 'mailto', meaning that if both are " .
-	    " set, the 'mailto' option will be ignored.",
+	description => "Deprecated: Do not use",
 	optional => 1,
     },
     tmpdir => {
