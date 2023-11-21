@@ -1,3 +1,12 @@
+libpve-guest-common-perl (5.0.6) bookworm; urgency=medium
+
+  * vzdump: mark the mailto, mailnotification, notification-target and
+    notification-policy as deprecated.
+
+  * vzdump: add 'notification-mode' param for backup jobs
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 21 Nov 2023 13:31:10 +0100
+
 libpve-guest-common-perl (5.0.5) bookworm; urgency=medium
 
   * replication: avoid passing removed storages to target
