@@ -89,9 +89,9 @@ PVE::JSONSchema::register_format('backup-performance', {
 	optional => 1,
     },
     'pbs-entries-max' => {
-	description => "Applies to container backups sent to PBS. Limits the number of entries "
-	    ."allowed in memory at a given time to avoid unintended OOM situations. Increase it to "
-	    ."enable backups of containers with a large amount of files.",
+	description => "Applies to container backups sent to PBS. Limits the number of entries"
+	    ." allowed in memory at a given time to avoid unintended OOM situations. Increase it to"
+	    ." enable backups of containers with a large amount of files.",
 	type => 'integer',
 	minimum => 1,
 	default => 1048576,
@@ -132,15 +132,15 @@ my $confdesc = {
     },
     pigz=> {
 	type => "integer",
-	description => "Use pigz instead of gzip when N>0.".
-	    " N=1 uses half of cores, N>1 uses N as thread count.",
+	description => "Use pigz instead of gzip when N>0. N=1 uses half of cores, N>1 uses N as"
+	    ." thread count.",
 	optional => 1,
 	default => 0,
     },
     zstd => {
 	type => "integer",
-	description => "Zstd threads. N=0 uses half of the available cores,".
-	    " N>0 uses N as thread count.",
+	description => "Zstd threads. N=0 uses half of the available cores, if N is set to a value"
+	    ." bigger than 0, N is used as thread count.",
 	optional => 1,
 	default => 1,
     },
@@ -164,9 +164,9 @@ my $confdesc = {
     },
     'exclude-path' => {
 	type => 'array',
-	description => "Exclude certain files/directories (shell globs)." .
-	    " Paths starting with '/' are anchored to the container's root, " .
-	    " other paths match relative to each subdirectory.",
+	description => "Exclude certain files/directories (shell globs). Paths starting with '/'"
+	    ." are anchored to the container's root, other paths match relative to each"
+	    ." subdirectory.",
 	optional => 1,
 	items => {
 	    type => 'string',
@@ -175,9 +175,8 @@ my $confdesc = {
     mailto => {
 	type => 'string',
 	format => 'email-or-username-list',
-	description => "Deprecated: Use notification targets/matchers instead." .
-	    " Comma-separated list of email addresses or users that should" .
-	    " receive email notifications.",
+	description => "Deprecated: Use notification targets/matchers instead. Comma-separated list"
+	    ." of email addresses or users that should receive email notifications.",
 	optional => 1,
     },
     mailnotification => {
@@ -190,16 +189,14 @@ my $confdesc = {
     },
     'notification-mode' => {
 	type => 'string',
-	description => "Determine which notification system to use." .
-	    " If set to 'legacy-sendmail', vzdump will consider the" .
-	    " mailto/mailnotification parameters and send emails to the" .
-	    " specified address(es) via the 'sendmail' command." .
-	    " If set to 'notification-system', a notification will be sent via PVE's" .
-	    " notification system and mailto/mailnotification will be ignored" .
-	    " If set to 'auto' (default setting), an email will be sent if " .
-	    " mailto is set, and the notification system will be used if not.",
+	description => "Determine which notification system to use. If set to 'legacy-sendmail',"
+	    ." vzdump will consider the mailto/mailnotification parameters and send emails to the"
+	    ." specified address(es) via the 'sendmail' command. If set to 'notification-system',"
+	    ." a notification will be sent via PVE's notification system, and the mailto and"
+	    ." mailnotification will be ignored. If set to 'auto' (default setting), an email will"
+	    ." be sent if mailto is set, and the notification system will be used if not.",
 	optional => 1,
-	enum => [ 'auto', 'legacy-sendmail', 'notification-system'],
+	enum => ['auto', 'legacy-sendmail', 'notification-system'],
 	default => 'auto',
     },
     'notification-policy' => {
@@ -250,10 +247,10 @@ my $confdesc = {
     },
     ionice => {
 	type => 'integer',
-	description => "Set IO priority when using the BFQ scheduler. For snapshot and suspend "
-	    ."mode backups of VMs, this only affects the compressor. A value of 8 means the idle "
-	    ."priority is used, otherwise the best-effort priority is used with the specified "
-	    ."value.",
+	description => "Set IO priority when using the BFQ scheduler. For snapshot and suspend"
+	    ." mode backups of VMs, this only affects the compressor. A value of 8 means the idle"
+	    ." priority is used, otherwise the best-effort priority is used with the specified"
+	    ." value.",
 	optional => 1,
 	minimum => 0,
 	maximum => 8,
@@ -305,11 +302,11 @@ my $confdesc = {
     },
     'notes-template' => {
 	type => 'string',
-	description => "Template string for generating notes for the backup(s). It can contain ".
-	    "variables which will be replaced by their values. Currently supported are ".
-	    "{{cluster}}, {{guestname}}, {{node}}, and {{vmid}}, but more might be added in the ".
-	    "future. Needs to be a single line, newline and backslash need to be escaped as '\\n' ".
-	    "and '\\\\' respectively.",
+	description => "Template string for generating notes for the backup(s). It can contain"
+	    ." variables which will be replaced by their values. Currently supported are"
+	    ." {{cluster}}, {{guestname}}, {{node}}, and {{vmid}}, but more might be added in the"
+	    ." future. Needs to be a single line, newline and backslash need to be escaped as '\\n'"
+	    ." and '\\\\' respectively.",
 	requires => 'storage',
 	maxLength => 1024,
 	optional => 1,
