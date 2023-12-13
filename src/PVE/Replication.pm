@@ -172,6 +172,8 @@ sub prepare {
     my $local_snapshots = {};
     my $cleaned_replicated_volumes = {};
     foreach my $volid (@$volids) {
+	$local_snapshots->{$volid} = {};
+
 	my $info = PVE::Storage::volume_snapshot_info($storecfg, $volid);
 
 	my $removal_ok = !defined($snapname) || $info->{$snapname};
