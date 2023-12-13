@@ -53,6 +53,7 @@ sub find_common_replication_snapshot {
     );
 
     my $base_snapshots = {};
+    my @missing_snapshots = ();
 
     foreach my $volid (@$volumes) {
 	my $local_info = $local_snapshots->{$volid};
@@ -91,13 +92,17 @@ sub find_common_replication_snapshot {
 		    next;
 		}
 
-		# The volume exists on the remote side, so trying a full sync won't work.
-		# Die early with a clean error.
-		die "No common base to restore the job state\n".
-		    "please delete jobid: $jobid and create the job again\n"
-		    if !defined($base_snapshots->{$volid});
+		push @missing_snapshots, $volid if !defined($base_snapshots->{$volid});
 	    }
 	}
+    }
+
+    if (scalar(@missing_snapshots) > 0) {
+	# There exist volumes without common base snapshot on the remote side.
+	# Trying to (do a full) sync won't work, so die early with a clean error.
+	my $volume_string = join(',', @missing_snapshots);
+	die "No common base snapshot on volume(s) $volume_string\nPlease remove the problematic " .
+	    "volume(s) from the replication target or delete and re-create the whole job $jobid\n";
     }
 
     return ($base_snapshots, $local_snapshots, $last_sync_snapname);
