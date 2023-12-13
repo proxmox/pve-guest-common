@@ -862,7 +862,7 @@ my $snapshot_delete_assert_not_needed_by_replication = sub {
     my $storecfg = PVE::Storage::config();
 
     # Current config's volumes are relevant for replication.
-    my $volumes = $class->get_replicatable_volumes($storecfg, $vmid, $conf, 1);
+    my $volumes = $class->get_replicatable_volumes($storecfg, $vmid, $conf, 0, 1);
 
     my $replication_jobs = $repl_conf->list_guests_local_replication_jobs($vmid);
 
