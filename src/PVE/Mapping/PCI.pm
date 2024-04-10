@@ -100,8 +100,10 @@ my $defaultData = {
 	    maxLength => 4096,
 	},
 	mdev => {
+	    description => "Marks the device(s) as being capable of providing mediated devices.",
 	    type => 'boolean',
 	    optional => 1,
+	    default => 0,
 	},
 	map => {
 	    type => 'array',
