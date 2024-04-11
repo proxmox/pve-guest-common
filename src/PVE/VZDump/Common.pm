@@ -33,6 +33,7 @@ my $dowhash_to_dow = sub {
 };
 
 our $PROPERTY_STRINGS = {
+    'fleecing' => 'backup-fleecing',
     'performance' => 'backup-performance',
     'prune-backups' => 'prune-backups',
 };
@@ -78,6 +79,24 @@ sub parse_dow {
 
     return $res;
 };
+
+PVE::JSONSchema::register_format('backup-fleecing', {
+    enabled => {
+	description => "Enable backup fleecing. Cache backup data from blocks where new guest"
+	    ." writes happen on specified storage instead of copying them directly to the backup"
+	    ." target. This can help guest IO performance and even prevent hangs, at the cost of"
+	    ." requiring more storage space.",
+	type => 'boolean',
+	default => 0,
+	optional => 1,
+	default_key => 1,
+    },
+    storage => get_standard_option('pve-storage-id', {
+	description => "Use this storage to storage fleecing images. For efficient space usage,"
+	    ." it's best to use a local storage that supports discard and either thin provisioning"
+	    ." or sparse files.",
+    }),
+});
 
 PVE::JSONSchema::register_format('backup-performance', {
     'max-workers' => {
@@ -260,6 +279,12 @@ my $confdesc = {
 	type => 'string',
 	description => "Other performance-related settings.",
 	format => 'backup-performance',
+	optional => 1,
+    },
+    fleecing => {
+	type => 'string',
+	description => "Options for backup fleecing (VM only).",
+	format => 'backup-fleecing',
 	optional => 1,
     },
     lockwait => {
