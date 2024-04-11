@@ -95,8 +95,20 @@ PVE::JSONSchema::register_format('backup-fleecing', {
 	description => "Use this storage to storage fleecing images. For efficient space usage,"
 	    ." it's best to use a local storage that supports discard and either thin provisioning"
 	    ." or sparse files.",
+	optional => 1,
     }),
-});
+}, \&verify_backup_fleecing);
+
+sub verify_backup_fleecing {
+    my ($param, $noerr) = @_;
+
+    if (!$param->{storage} && $param->{enabled}) {
+	return if $noerr;
+	die "'storage' parameter is required when 'enabled' is set\n";
+    }
+
+    return $param;
+}
 
 PVE::JSONSchema::register_format('backup-performance', {
     'max-workers' => {
