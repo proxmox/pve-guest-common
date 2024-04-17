@@ -1,3 +1,19 @@
+libpve-guest-common-perl (5.1.0) bookworm; urgency=medium
+
+  * replication: prepare: include volumes without snapshots in the result
+
+  * replication: find common base: improve error when no common base snapshot
+    exists
+
+  * replication: avoid that (container) volumes that have the replicate
+    setting turned off explicitly get replicated in some cases.
+
+  * vzdump: schema: add fleecing property string
+
+  * guest helpers: add helper to abort active guest tasks of a certain type
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 17 Apr 2024 17:39:48 +0200
+
 libpve-guest-common-perl (5.0.6) bookworm; urgency=medium
 
   * vzdump: mark the mailto, mailnotification, notification-target and
