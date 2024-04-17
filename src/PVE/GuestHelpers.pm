@@ -426,11 +426,10 @@ sub abort_guest_tasks {
     my $active_tasks = PVE::INotify::read_file('active');
     my $aborted_tasks = [];
     for my $task (@$active_tasks) {
-	if (!$task->{saved}
-	    && $task->{type} eq $type
-	    && $task->{id} eq $vmid
-	) {
-	    my $can_abort_task;
+	next if $task->{saved} || $task->{type} ne $type || $task->{id} ne $vmid; # filter
+
+	my $can_abort_task = $can_abort_all;
+	if (!$can_abort_task) {
 	    # tasks started by a token can be aborted by the token or token owner,
 	    # tasks started by a user can be aborted by the user
 	    if (PVE::AccessControl::pve_verify_tokenid($task->{user}, 1)) {
@@ -440,12 +439,12 @@ sub abort_guest_tasks {
 	    } else {
 		$can_abort_task = $authuser eq $task->{user};
 	    }
+	}
 
-	    if ($can_abort_all || $can_abort_task) {
-	       # passing `1` for parameter $killit aborts the task
-	       PVE::RPCEnvironment->check_worker($task->{upid}, 1);
-	       push @$aborted_tasks, $task->{upid};
-	   }
+	if ($can_abort_task) {
+	   # passing `1` for parameter $killit aborts the task
+	   PVE::RPCEnvironment->check_worker($task->{upid}, 1);
+	   push @$aborted_tasks, $task->{upid};
 	}
     }
     return $aborted_tasks;
