@@ -336,7 +336,7 @@ sub replicate {
 	foreach my $volid (@$sorted_volids) {
 	    $logfunc->("create snapshot '${sync_snapname}' on $volid");
 	    PVE::Storage::volume_snapshot($storecfg, $volid, $sync_snapname);
-	    $replicate_snapshots->{$volid} = 1;
+	    $replicate_snapshots->{$volid}->{$sync_snapname} = 1;
 	}
     };
     my $err = $@;
@@ -350,6 +350,7 @@ sub replicate {
     my $cleanup_local_snapshots = sub {
 	my ($volid_hash, $snapname) = @_;
 	foreach my $volid (sort keys %$volid_hash) {
+	    next if !$volid_hash->{$volid}->{$snapname};
 	    $logfunc->("delete previous replication snapshot '$snapname' on $volid");
 	    eval { PVE::Storage::volume_snapshot_delete($storecfg, $volid, $snapname); };
 	    warn $@ if $@;
