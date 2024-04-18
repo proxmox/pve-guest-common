@@ -1,3 +1,10 @@
+libpve-guest-common-perl (5.1.1) bookworm; urgency=medium
+
+  * replication: snapshot cleanup: only attempt to remove snapshots that exist
+    to fix a minor regression of the last 5.1.0 release
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 18 Apr 2024 10:19:51 +0200
+
 libpve-guest-common-perl (5.1.0) bookworm; urgency=medium
 
   * replication: prepare: include volumes without snapshots in the result
