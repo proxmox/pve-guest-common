@@ -128,8 +128,11 @@ sub storage_migrate {
 our $cmd_schema = {
     bwlimit => {
 	storages => {
-	    type => 'string',
-	    format => 'pve-storage-id-list',
+	    type => 'array',
+	    members => {
+		type => 'string',
+		format => 'pve-storage-id',
+	    },
 	    description => "Storage for which bwlimit is queried",
 	},
 	bwlimit => {
@@ -150,7 +153,11 @@ our $cmd_schema = {
 	    type => 'string',
 	    description => 'volume name to use as preferred target volume name',
 	},
-	format => PVE::JSONSchema::get_standard_option('pve-qm-image-format'),
+	format => {
+	    type => 'string',
+	    format => 'pve-storage-format',
+	    description => 'preferred format for the target volume',
+	},
 	export_formats => {
 	    type => 'string',
 	    description => 'list of supported export formats',
