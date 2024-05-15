@@ -50,13 +50,13 @@ sub storage_migrate {
     my $disk_import_opts = {
 	format => $format,
 	storage => $targetsid,
-	snapshot => $snapshot,
-	migration_snapshot => $migration_snapshot,
+	migration_snapshot => $migration_snapshot ? 1 : 0,
 	with_snapshots => $with_snapshots,
 	allow_rename => !$opts->{is_vmstate},
 	export_formats => join(",", @export_formats),
 	volname => $name,
     };
+    $disk_import_opts->{snapshot} = $snapshot if $snapshot;
     my $res = PVE::Tunnel::write_tunnel($tunnel, 600, 'disk-import', $disk_import_opts);
     my $local = "/run/pve/$local_vmid.storage";
     if (!$tunnel->{forwarded}->{$local}) {
