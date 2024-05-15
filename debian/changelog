@@ -1,3 +1,10 @@
+libpve-guest-common-perl (5.1.2) bookworm; urgency=medium
+
+  * storage tunnel: fix schema definitions and adhere to it when sending
+    disk-import parameters
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 15 May 2024 19:22:22 +0200
+
 libpve-guest-common-perl (5.1.1) bookworm; urgency=medium
 
   * replication: snapshot cleanup: only attempt to remove snapshots that exist
