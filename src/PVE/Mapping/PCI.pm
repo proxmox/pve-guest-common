@@ -131,9 +131,9 @@ sub options {
 
 # checks if the given config is valid for the current node
 sub assert_valid {
-    my ($name, $cfg) = @_;
+    my ($name, $mapping) = @_;
 
-    my @paths = split(';', $cfg->{path} // '');
+    my @paths = split(';', $mapping->{path} // '');
 
     my $idx = 0;
     for my $path (@paths) {
@@ -160,15 +160,15 @@ sub assert_valid {
 	for my $prop (sort keys %$correct_props) {
 	    next if $prop eq 'iommugroup' && $idx > 0; # check iommu only on the first device
 
-	    next if !defined($correct_props->{$prop}) && !defined($cfg->{$prop});
+	    next if !defined($correct_props->{$prop}) && !defined($mapping->{$prop});
 	    die "no '$prop' for device '$path'\n"
-		if defined($correct_props->{$prop}) && !defined($cfg->{$prop});
+		if defined($correct_props->{$prop}) && !defined($mapping->{$prop});
 	    die "'$prop' configured but should not be\n"
-		if !defined($correct_props->{$prop}) && defined($cfg->{$prop});
+		if !defined($correct_props->{$prop}) && defined($mapping->{$prop});
 
 	    my $correct_prop = $correct_props->{$prop};
 	    $correct_prop =~ s/0x//g;
-	    my $configured_prop = $cfg->{$prop};
+	    my $configured_prop = $mapping->{$prop};
 	    $configured_prop =~ s/0x//g;
 
 	    die "'$prop' does not match for '$name' ($correct_prop != $configured_prop)\n"
