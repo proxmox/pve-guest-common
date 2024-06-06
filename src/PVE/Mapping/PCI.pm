@@ -148,32 +148,37 @@ sub assert_valid {
 	my $info = PVE::SysFSTools::pci_device_info($path, 1);
 	die "pci device '$path' not found\n" if !defined($info);
 
-	my $correct_props = {
+	# make sure to initialize all keys that should be checked below
+	my $expected_props = {
 	    id => "$info->{vendor}:$info->{device}",
 	    iommugroup => $info->{iommugroup},
+	    'subsystem-id' => undef,
 	};
 
 	if (defined($info->{'subsystem_vendor'}) && defined($info->{'subsystem_device'})) {
-	    $correct_props->{'subsystem-id'} = "$info->{'subsystem_vendor'}:$info->{'subsystem_device'}";
+	    $expected_props->{'subsystem-id'} = "$info->{'subsystem_vendor'}:$info->{'subsystem_device'}";
 	}
 
-	for my $prop (sort keys %$correct_props) {
+	my $configured_props = { $mapping->%{qw(id iommugroup subsystem-id)} };
+
+	for my $prop (sort keys $expected_props->%*) {
 	    next if $prop eq 'iommugroup' && $idx > 0; # check iommu only on the first device
 
-	    next if !defined($correct_props->{$prop}) && !defined($mapping->{$prop});
+	    next if !defined($expected_props->{$prop}) && !defined($configured_props->{$prop});
 	    die "missing expected property '$prop' for device '$path'\n"
-		if defined($correct_props->{$prop}) && !defined($mapping->{$prop});
+		if defined($expected_props->{$prop}) && !defined($configured_props->{$prop});
 	    die "unexpected property '$prop' configured for device '$path'\n"
-		if !defined($correct_props->{$prop}) && defined($mapping->{$prop});
+		if !defined($expected_props->{$prop}) && defined($configured_props->{$prop});
 
-	    my $correct_prop = $correct_props->{$prop};
-	    $correct_prop =~ s/0x//g;
-	    my $configured_prop = $mapping->{$prop};
+	    my $expected_prop = $expected_props->{$prop};
+	    $expected_prop =~ s/0x//g;
+	    my $configured_prop = $configured_props->{$prop};
 	    $configured_prop =~ s/0x//g;
 
-	    die "'$prop' does not match for '$name' ($correct_prop != $configured_prop)\n"
-		if $correct_prop ne $configured_prop;
+	    die "'$prop' does not match for '$name' ($expected_prop != $configured_prop)\n"
+		if $expected_prop ne $configured_prop;
 	}
+
 	$idx++;
     }
 
