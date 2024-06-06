@@ -161,9 +161,9 @@ sub assert_valid {
 	    next if $prop eq 'iommugroup' && $idx > 0; # check iommu only on the first device
 
 	    next if !defined($correct_props->{$prop}) && !defined($mapping->{$prop});
-	    die "no '$prop' for device '$path'\n"
+	    die "missing expected property '$prop' for device '$path'\n"
 		if defined($correct_props->{$prop}) && !defined($mapping->{$prop});
-	    die "'$prop' configured but should not be\n"
+	    die "unexpected property '$prop' configured for device '$path'\n"
 		if !defined($correct_props->{$prop}) && defined($mapping->{$prop});
 
 	    my $correct_prop = $correct_props->{$prop};
