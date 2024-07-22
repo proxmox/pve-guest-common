@@ -1,3 +1,14 @@
+libpve-guest-common-perl (5.1.4) bookworm; urgency=medium
+
+  * mappings: improve clarity of error messages
+
+  * mapping: pci: ensure all desired properties are checked
+
+  * vzdump common: allow 'job-id' as a parameter without being in schema to
+    allow making it matchable metadata for in the notification system.
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 22 Jul 2024 19:15:05 +0200
+
 libpve-guest-common-perl (5.1.3) bookworm; urgency=medium
 
   * vzdump: schema: add PBS change detection mode configuration
