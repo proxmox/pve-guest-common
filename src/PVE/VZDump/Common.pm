@@ -356,7 +356,7 @@ my $confdesc = {
     },
     'pbs-change-detection-mode' => {
 	type => 'string',
-	description => "EXPERIMENTAL: PBS mode used to detect file changes and switch encoding"
+	description => "PBS mode used to detect file changes and switch encoding. NOTE: `data` and `metadata` modes are experimental."
 	    . " format for container backups.",
 	optional => 1,
 	enum => [ 'legacy', 'data', 'metadata' ],
