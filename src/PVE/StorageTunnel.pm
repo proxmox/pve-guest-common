@@ -280,6 +280,14 @@ sub handle_query_disk_import {
 	delete $state->{sockets}->{$unix};
 	delete $state->{disk_import};
 	$state->{cleanup}->{volumes}->{$volid} = 1;
+	my $cfg = PVE::Storage::config();
+	my ($storage, $volume) = PVE::Storage::parse_volume_id($volid);
+	my $scfg = PVE::Storage::storage_config($cfg, $storage);
+	# check imported image for bad references
+	if ($scfg->{path}) {
+	    my $path = PVE::Storage::path($cfg, $volid);
+	    PVE::Storage::file_size_info($path, undef, 1);
+	}
 	return {
 	    status => "complete",
 	    volid => $volid,
