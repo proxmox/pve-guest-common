@@ -579,6 +579,13 @@ sub __snapshot_check_running {
     die "implement me - abstract method\n";
 }
 
+# Abstract method: Check if there is a resource preventing a snapshot.
+sub __snapshot_assert_no_blockers {
+    my ($class, $vmconf, $save_vmstate) = @_;
+
+    return;
+}
+
 # Check whether we need to freeze the VM/CT
 sub __snapshot_check_freeze_needed {
     my ($sself, $vmid, $config, $save_vmstate) = @_;
@@ -725,6 +732,8 @@ sub __snapshot_prepare {
 	    if $class->is_template($conf);
 
 	$class->check_lock($conf);
+
+	$class->__snapshot_assert_no_blockers($conf, $save_vmstate);
 
 	$conf->{lock} = 'snapshot';
 
