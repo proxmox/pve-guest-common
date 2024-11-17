@@ -1,3 +1,12 @@
+libpve-guest-common-perl (5.1.5) bookworm; urgency=medium
+
+  * vzdump: do not declare PBS change-detection mode as experimental anymore
+
+  * abstract config: add abstract method to check for resources preventing a
+    snapshot
+
+ -- Proxmox Support Team <support@proxmox.com>  Sun, 17 Nov 2024 18:33:11 +0100
+
 libpve-guest-common-perl (5.1.4) bookworm; urgency=medium
 
   * mappings: improve clarity of error messages
