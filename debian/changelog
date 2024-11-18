@@ -1,3 +1,9 @@
+libpve-guest-common-perl (5.1.6) bookworm; urgency=medium
+
+  * vzdump common: fix syntax error that's failing to load some daemons
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 18 Nov 2024 08:38:39 +0100
+
 libpve-guest-common-perl (5.1.5) bookworm; urgency=medium
 
   * vzdump: do not declare PBS change-detection mode as experimental anymore
