@@ -350,9 +350,14 @@ sub get_bwlimit {
 	    storages => [$target],
 	    bwlimit => $self->{opts}->{bwlimit},
 	};
-	my $remote_bwlimit = PVE::Tunnel::write_tunnel($self->{tunnel}, 10, 'bwlimit', $bwlimit_opts);
-	if ($remote_bwlimit && $remote_bwlimit->{bwlimit}) {
-	    $remote_bwlimit = $remote_bwlimit->{bwlimit};
+
+	my $bwlimit_reply = PVE::Tunnel::write_tunnel(
+	    $self->{tunnel}, 10, 'bwlimit', $bwlimit_opts);
+
+	if ($bwlimit_reply && $bwlimit_reply->{bwlimit}) {
+	    # untaint
+	    my ($remote_bwlimit) = ($bwlimit_reply->{bwlimit} =~ m/^(\d+(.\d+)?)$/)
+		or die "invalid remote bandwidth limit: '$bwlimit_reply->{bwlimit}'\n";
 
 	    $bwlimit = $remote_bwlimit
 		if (!$bwlimit || $bwlimit > $remote_bwlimit);
