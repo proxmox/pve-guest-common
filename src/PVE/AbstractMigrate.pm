@@ -345,22 +345,19 @@ sub get_bwlimit {
     my $bwlimit = PVE::Storage::get_bandwidth_limit('migration', $local_sids, $self->{opts}->{bwlimit});
 
     if ($self->{opts}->{remote}) {
-	my $bwlimit_opts = {
+	my $bwlimit_reply = PVE::Tunnel::write_tunnel($self->{tunnel}, 10, 'bwlimit', {
 	    operation => 'migration',
 	    storages => [$target],
 	    bwlimit => $self->{opts}->{bwlimit},
-	};
+	});
 
-	my $bwlimit_reply = PVE::Tunnel::write_tunnel(
-	    $self->{tunnel}, 10, 'bwlimit', $bwlimit_opts);
-
-	if ($bwlimit_reply && $bwlimit_reply->{bwlimit}) {
+	if ($bwlimit_reply && (my $remote_bwlimit_raw = $bwlimit_reply->{bwlimit})) {
 	    # untaint
-	    my ($remote_bwlimit) = ($bwlimit_reply->{bwlimit} =~ m/^(\d+(.\d+)?)$/)
+	    my ($remote_bwlimit) = ($remote_bwlimit_raw =~ m/^(\d+(?:.\d+)?)$/)
 		or die "invalid remote bandwidth limit: '$bwlimit_reply->{bwlimit}'\n";
 
-	    $bwlimit = $remote_bwlimit
-		if (!$bwlimit || $bwlimit > $remote_bwlimit);
+	    # only allow lowering the effecting bandwidth limit.
+	    $bwlimit = $remote_bwlimit if (!$bwlimit || $bwlimit > $remote_bwlimit);
 	}
     }
 
