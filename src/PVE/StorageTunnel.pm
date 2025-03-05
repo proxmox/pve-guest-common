@@ -7,7 +7,9 @@ use IO::Socket::UNIX;
 use POSIX qw(WNOHANG);
 use Socket qw(SOCK_STREAM);
 
+use PVE::JSONSchema;
 use PVE::Storage;
+use PVE::Storage::Common; # for pve-storage-image-format standard option
 use PVE::Tools;
 use PVE::Tunnel;
 
@@ -153,11 +155,9 @@ our $cmd_schema = {
 	    type => 'string',
 	    description => 'volume name to use as preferred target volume name',
 	},
-	format => {
-	    type => 'string',
-	    format => 'pve-storage-format',
+	format => PVE::JSONSchema::get_standard_option('pve-storage-image-format', {
 	    description => 'preferred format for the target volume',
-	},
+	}),
 	export_formats => {
 	    type => 'string',
 	    description => 'list of supported export formats',
