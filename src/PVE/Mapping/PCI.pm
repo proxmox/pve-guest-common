@@ -105,6 +105,13 @@ my $defaultData = {
 	    optional => 1,
 	    default => 0,
 	},
+	'live-migration-capable' => {
+	    description => "Marks the device(s) as being able to be live-migrated (Experimental)."
+		." This needs hardware and driver support to work.",
+	    type => 'boolean',
+	    optional => 1,
+	    default => 0,
+	},
 	map => {
 	    type => 'array',
 	    description => 'A list of maps for the cluster nodes.',
@@ -125,6 +132,7 @@ sub options {
     return {
 	description => { optional => 1 },
 	mdev => { optional => 1 },
+	'live-migration-capable' => { optional => 1 },
 	map => {},
     };
 }
