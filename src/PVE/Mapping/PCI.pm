@@ -131,7 +131,7 @@ sub options {
 
 # checks if the given config is valid for the current node
 sub assert_valid {
-    my ($name, $mapping) = @_;
+    my ($name, $mapping, $cluster_mapping_cfg) = @_;
 
     my @paths = split(';', $mapping->{path} // '');
 
@@ -160,6 +160,12 @@ sub assert_valid {
 	}
 
 	my $configured_props = { $mapping->%{qw(id iommugroup subsystem-id)} };
+
+	# check mdev from globabl mapping config, if that is given
+	if (defined($cluster_mapping_cfg)) {
+	    $expected_props->{mdev} = $info->{mdev} ? 1 : 0;
+	    $configured_props->{mdev} = $cluster_mapping_cfg->{mdev} ? 1 : 0;
+	}
 
 	for my $prop (sort keys $expected_props->%*) {
 	    next if $prop eq 'iommugroup' && $idx > 0; # check iommu only on the first device
