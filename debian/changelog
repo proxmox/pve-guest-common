@@ -1,3 +1,16 @@
+libpve-guest-common-perl (5.1.7) bookworm; urgency=medium
+
+  * fix #6130: remote migration: untaint bandwidth limit from remote
+
+  * mapping: pci: check the mdev configuration on the device too
+
+  * mapping: pci: add 'live-migration-capable' opt-in flag to mappings
+
+  * storage tunnel: check just-imported image files to protect against attacks
+    over images on external live-migrations.
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 03 Apr 2025 12:00:12 +0200
+
 libpve-guest-common-perl (5.1.6) bookworm; urgency=medium
 
   * vzdump common: fix syntax error that's failing to load some daemons
