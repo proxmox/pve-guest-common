@@ -258,7 +258,7 @@ sub handle_query_disk_import {
 	}
 
 	my $unix = $state->{disk_import}->{socket};
-	unlink $unix;
+	unlink $unix or $!{ENOENT} or warn "failed to unlink disk import socket – $!\n";
 	delete $state->{sockets}->{$unix};
 	delete $state->{disk_import};
 
@@ -276,10 +276,11 @@ sub handle_query_disk_import {
 	waitpid($state->{disk_import}->{pid}, 0);
 
 	my $unix = $state->{disk_import}->{socket};
-	unlink $unix;
+	unlink $unix or $!{ENOENT} or warn "failed to unlink disk import socket – $!\n";
 	delete $state->{sockets}->{$unix};
 	delete $state->{disk_import};
 	$state->{cleanup}->{volumes}->{$volid} = 1;
+
 	my $cfg = PVE::Storage::config();
 	my ($storage, $volume) = PVE::Storage::parse_volume_id($volid);
 	my $scfg = PVE::Storage::storage_config($cfg, $storage);
@@ -288,6 +289,7 @@ sub handle_query_disk_import {
 	    my $path = PVE::Storage::path($cfg, $volid);
 	    PVE::Storage::file_size_info($path, undef, 1);
 	}
+
 	return {
 	    status => "complete",
 	    volid => $volid,
