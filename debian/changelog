@@ -1,3 +1,9 @@
+libpve-guest-common-perl (5.2.1) bookworm; urgency=medium
+
+  * replication: delete job even if it is disabled
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 07 Apr 2025 22:19:56 +0200
+
 libpve-guest-common-perl (5.2.0) bookworm; urgency=medium
 
   * storage tunnel: use pve-storage-image-format standard option
