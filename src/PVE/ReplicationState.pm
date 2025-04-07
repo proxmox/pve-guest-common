@@ -272,7 +272,7 @@ sub job_status {
 	    # never sync to local node
 	    next if !$jobcfg->{remove_job} && $target eq $local_node;
 
-	    next if !$get_disabled && $jobcfg->{disable};
+	    next if !$jobcfg->{remove_job} && !$get_disabled && $jobcfg->{disable};
 
 	    my $state = extract_job_state($stateobj, $jobcfg);
 	    $jobcfg->{state} = $state;
