@@ -179,7 +179,9 @@ sub fork_ssh_tunnel {
 
     eval {
 	my $ver = read_tunnel($tunnel, 10);
-	if ($ver =~ /^ver (\d+)$/) {
+	if (!defined($ver)) {
+	    $err = "failed to receive tunnel version string\n" if !$err;
+	} elsif ($ver =~ /^ver (\d+)$/) {
 	    $tunnel->{version} = $1;
 	    $log->('info', "ssh tunnel $ver\n");
 	} else {
