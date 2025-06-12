@@ -281,7 +281,10 @@ sub replicate {
 
     my $migration_network;
     my $migration_type = 'secure';
-    if (my $mc = $dc_conf->{migration}) {
+    if (my $rc = $dc_conf->{replication}) {
+        $migration_network = $rc->{network};
+        $migration_type = $rc->{type} if defined($rc->{type});
+    } elsif (my $mc = $dc_conf->{migration}) {
         $migration_network = $mc->{network};
         $migration_type = $mc->{type} if defined($mc->{type});
     }
