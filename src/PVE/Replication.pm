@@ -419,7 +419,7 @@ sub replicate {
         my $rate = $jobcfg->{rate};
         my $insecure = $migration_type eq 'insecure';
 
-        $logfunc->("using $migration_type transmission, rate limit: "
+        $logfunc->("using $migration_type transmission over $migration_network, rate limit: "
             . ($rate ? "$rate MByte/s" : "none"));
 
         foreach my $volid (@$sorted_volids) {
