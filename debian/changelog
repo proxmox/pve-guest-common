@@ -1,3 +1,9 @@
+libpve-guest-common-perl (6.0.0) trixie; urgency=medium
+
+  * re-build for Debian 13 Trixie based Proxmox VE 9 release.
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 16 Jun 2025 15:25:05 +0200
+
 libpve-guest-common-perl (5.2.2) bookworm; urgency=medium
 
   * depend on recent enough libpve-cluster-perl version to ensure we can get
