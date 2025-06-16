@@ -55,7 +55,7 @@ sub load_config {
 
     my $conf = PVE::Cluster::cfs_read_file($cfspath);
     die "Configuration file '$cfspath' does not exist\n"
-	if !defined($conf);
+        if !defined($conf);
 
     return $conf;
 }
@@ -81,10 +81,10 @@ sub parse_pending_delete {
 
     my $pending_deletions = {};
     for my $entry (split(/\s+/, $data)) {
-	my ($force, $key) = $entry =~ /^(!?)(.*)$/;
-	$pending_deletions->{$key} = {
-	    force => $force ? 1 : 0,
-	};
+        my ($force, $key) = $entry =~ /^(!?)(.*)$/;
+        $pending_deletions->{$key} = {
+            force => $force ? 1 : 0,
+        };
     }
 
     return $pending_deletions;
@@ -94,12 +94,12 @@ sub print_pending_delete {
     my ($class, $delete_hash) = @_;
 
     my $render_key = sub {
-	my $key = shift;
-	$key = "!$key" if $delete_hash->{$key}->{force};
-	return $key;
+        my $key = shift;
+        $key = "!$key" if $delete_hash->{$key}->{force};
+        return $key;
     };
 
-    join (',', map { $render_key->($_) } sort keys %$delete_hash);
+    join(',', map { $render_key->($_) } sort keys %$delete_hash);
 }
 
 sub add_to_pending_delete {
@@ -122,14 +122,14 @@ sub remove_from_pending_delete {
     my $pending = $conf->{pending};
     my $pending_delete_hash = $class->parse_pending_delete($pending->{delete});
 
-    return $conf if ! exists $pending_delete_hash->{$key};
+    return $conf if !exists $pending_delete_hash->{$key};
 
     delete $pending_delete_hash->{$key};
 
     if (%$pending_delete_hash) {
-	$pending->{delete} = $class->print_pending_delete($pending_delete_hash);
+        $pending->{delete} = $class->print_pending_delete($pending_delete_hash);
     } else {
-	delete $pending->{delete};
+        delete $pending->{delete};
     }
 
     return $conf;
@@ -141,28 +141,28 @@ sub cleanup_pending {
     my $pending = $conf->{pending};
     # remove pending changes when nothing changed
     my $changes;
-    foreach my $opt (keys %{$conf->{pending}}) {
-	next if $opt eq 'delete'; # just to be sure
-	if (defined($conf->{$opt}) && ($pending->{$opt} eq $conf->{$opt})) {
-	    $changes = 1;
-	    delete $pending->{$opt};
-	}
+    foreach my $opt (keys %{ $conf->{pending} }) {
+        next if $opt eq 'delete'; # just to be sure
+        if (defined($conf->{$opt}) && ($pending->{$opt} eq $conf->{$opt})) {
+            $changes = 1;
+            delete $pending->{$opt};
+        }
     }
 
     my $current_delete_hash = $class->parse_pending_delete($pending->{delete});
     my $pending_delete_hash = {};
     for my $opt (keys %$current_delete_hash) {
-	if (defined($conf->{$opt})) {
-	    $pending_delete_hash->{$opt} = $current_delete_hash->{$opt};
-	} else {
-	    $changes = 1;
-	}
+        if (defined($conf->{$opt})) {
+            $pending_delete_hash->{$opt} = $current_delete_hash->{$opt};
+        } else {
+            $changes = 1;
+        }
     }
 
     if (%$pending_delete_hash) {
-	$pending->{delete} = $class->print_pending_delete($pending_delete_hash);
+        $pending->{delete} = $class->print_pending_delete($pending_delete_hash);
     } else {
-	delete $pending->{delete};
+        delete $pending->{delete};
     }
 
     return $changes;
@@ -185,33 +185,32 @@ sub partial_fast_plug {
 
     my $configured = {};
     if (exists($conf->{$opt})) {
-	$configured = PVE::JSONSchema::parse_property_string($format, $conf->{$opt});
+        $configured = PVE::JSONSchema::parse_property_string($format, $conf->{$opt});
     }
     my $pending = PVE::JSONSchema::parse_property_string($format, $conf->{pending}->{$opt});
 
     my $changes = 0;
 
     # merge configured and pending opts to iterate
-    my @all_keys = keys %{{ %$pending, %$configured }};
+    my @all_keys = keys %{ { %$pending, %$configured } };
 
     foreach my $subopt (@all_keys) {
-	my $type = $format->{$subopt}->{type};
-	if (typesafe_ne($configured->{$subopt}, $pending->{$subopt}, $type)) {
-	    if ($fast_pluggable->{$subopt}) {
-		$configured->{$subopt} = $pending->{$subopt};
-		$changes = 1
-	    }
-	}
+        my $type = $format->{$subopt}->{type};
+        if (typesafe_ne($configured->{$subopt}, $pending->{$subopt}, $type)) {
+            if ($fast_pluggable->{$subopt}) {
+                $configured->{$subopt} = $pending->{$subopt};
+                $changes = 1;
+            }
+        }
     }
 
     # if there're no keys in $configured (after merge) there shouldn't be anything to change
     if (keys %$configured) {
-	$conf->{$opt} = PVE::JSONSchema::print_property_string($configured, $format);
+        $conf->{$opt} = PVE::JSONSchema::print_property_string($configured, $format);
     }
 
     return $changes;
 }
-
 
 sub load_snapshot_config {
     my ($class, $vmid, $snapname) = @_;
@@ -234,16 +233,16 @@ sub load_current_config {
 
     # take pending changes in
     if (!$current) {
-	foreach my $opt (keys %{$conf->{pending}}) {
-	    next if $opt eq 'delete';
-	    my $value = $conf->{pending}->{$opt};
-	    next if ref($value); # just to be sure
-	    $conf->{$opt} = $value;
-	}
-	my $pending_delete_hash = $class->parse_pending_delete($conf->{pending}->{delete});
-	foreach my $opt (keys %$pending_delete_hash) {
-	    delete $conf->{$opt} if $conf->{$opt};
-	}
+        foreach my $opt (keys %{ $conf->{pending} }) {
+            next if $opt eq 'delete';
+            my $value = $conf->{pending}->{$opt};
+            next if ref($value); # just to be sure
+            $conf->{$opt} = $value;
+        }
+        my $pending_delete_hash = $class->parse_pending_delete($conf->{pending}->{delete});
+        foreach my $opt (keys %$pending_delete_hash) {
+            delete $conf->{$opt} if $conf->{$opt};
+        }
     }
 
     delete $conf->{snapshots};
@@ -255,14 +254,18 @@ sub load_current_config {
 sub create_and_lock_config {
     my ($class, $vmid, $allow_existing, $lock) = @_;
 
-    $class->lock_config_full($vmid, 5, sub {
-	PVE::Cluster::check_vmid_unused($vmid, $allow_existing);
+    $class->lock_config_full(
+        $vmid,
+        5,
+        sub {
+            PVE::Cluster::check_vmid_unused($vmid, $allow_existing);
 
-	my $conf = eval { $class->load_config($vmid) } || {};
-	$class->check_lock($conf);
-	$conf->{lock} = $lock // 'create';
-	$class->write_config($vmid, $conf);
-    });
+            my $conf = eval { $class->load_config($vmid) } || {};
+            $class->check_lock($conf);
+            $conf->{lock} = $lock // 'create';
+            $class->write_config($vmid, $conf);
+        },
+    );
 }
 
 # destroys configuration, only applicable for configs owned by the callers node.
@@ -285,7 +288,7 @@ sub move_config_to_node {
     my $new_config_fn = $class->config_file($vmid, $target_node);
 
     rename($config_fn, $new_config_fn)
-	or die "failed to move config file to node '$target_node': $!\n";
+        or die "failed to move config file to node '$target_node': $!\n";
 }
 
 my $lock_file_full_wrapper = sub {
@@ -295,8 +298,8 @@ my $lock_file_full_wrapper = sub {
 
     # make sure configuration file is up-to-date
     my $code = sub {
-	PVE::Cluster::cfs_update();
-	$realcode->(@_);
+        PVE::Cluster::cfs_update();
+        $realcode->(@_);
     };
 
     my $res = lock_file_full($filename, $timeout, $shared, $code, @param);
@@ -322,7 +325,6 @@ sub lock_config_full {
     return $lock_file_full_wrapper->($class, $vmid, $timeout, 0, $code, @param);
 }
 
-
 # Lock config file using flock, run $code with @param, unlock config file.
 sub lock_config {
     my ($class, $vmid, $code, @param) = @_;
@@ -334,7 +336,7 @@ sub lock_config {
 sub check_lock {
     my ($class, $conf) = @_;
 
-    die $class->guest_type()." is locked ($conf->{lock})\n" if $conf->{lock};
+    die $class->guest_type() . " is locked ($conf->{lock})\n" if $conf->{lock};
 }
 
 # Returns whether the config is locked with the lock parameter, also checks
@@ -350,12 +352,15 @@ sub set_lock {
     my ($class, $vmid, $lock) = @_;
 
     my $conf;
-    $class->lock_config($vmid, sub {
-	$conf = $class->load_config($vmid);
-	$class->check_lock($conf);
-	$conf->{lock} = $lock;
-	$class->write_config($vmid, $conf);
-    });
+    $class->lock_config(
+        $vmid,
+        sub {
+            $conf = $class->load_config($vmid);
+            $class->check_lock($conf);
+            $conf->{lock} = $lock;
+            $class->write_config($vmid, $conf);
+        },
+    );
     return $conf;
 }
 
@@ -364,17 +369,20 @@ sub set_lock {
 sub remove_lock {
     my ($class, $vmid, $lock) = @_;
 
-    $class->lock_config($vmid, sub {
-	my $conf = $class->load_config($vmid);
-	if (!$conf->{lock}) {
-	    my $lockstring = defined($lock) ? "'$lock' " : "any";
-	    die "no lock found trying to remove $lockstring lock\n";
-	} elsif (defined($lock) && $conf->{lock} ne $lock) {
-	    die "found lock '$conf->{lock}' trying to remove '$lock' lock\n";
-	}
-	delete $conf->{lock};
-	$class->write_config($vmid, $conf);
-    });
+    $class->lock_config(
+        $vmid,
+        sub {
+            my $conf = $class->load_config($vmid);
+            if (!$conf->{lock}) {
+                my $lockstring = defined($lock) ? "'$lock' " : "any";
+                die "no lock found trying to remove $lockstring lock\n";
+            } elsif (defined($lock) && $conf->{lock} ne $lock) {
+                die "found lock '$conf->{lock}' trying to remove '$lock' lock\n";
+            }
+            delete $conf->{lock};
+            $class->write_config($vmid, $conf);
+        },
+    );
 }
 
 # Checks whether protection mode is enabled for this VM/CT.
@@ -382,7 +390,7 @@ sub check_protection {
     my ($class, $conf, $err_msg) = @_;
 
     if ($conf->{protection}) {
-	die "$err_msg - protection mode enabled\n";
+        die "$err_msg - protection mode enabled\n";
     }
 }
 
@@ -422,12 +430,12 @@ sub add_unused_volume {
 
     my $key;
     for (my $ind = $class->__config_max_unused_disks() - 1; $ind >= 0; $ind--) {
-	my $test = "unused$ind";
-	if (my $vid = $config->{$test}) {
-	    return if $vid eq $volid; # do not add duplicates
-	} else {
-	    $key = $test;
-	}
+        my $test = "unused$ind";
+        if (my $vid = $config->{$test}) {
+            return if $vid eq $volid; # do not add duplicates
+        } else {
+            $key = $test;
+        }
     }
 
     die "Too many unused volumes - please delete them first.\n" if !$key;
@@ -443,10 +451,10 @@ sub foreach_unused_volume {
     my ($class, $conf, $func, @param) = @_;
 
     foreach my $key (keys %{$conf}) {
-	if ($key =~ m/^unused\d+$/) {
-	    my $volume = $class->parse_volume($key, $conf->{$key});
-	    $func->($key, $volume, @param);
-	}
+        if ($key =~ m/^unused\d+$/) {
+            my $volume = $class->parse_volume($key, $conf->{$key});
+            $func->($key, $volume, @param);
+        }
     }
 }
 
@@ -460,19 +468,19 @@ sub foreach_volume_full {
     my ($class, $conf, $opts, $func, @param) = @_;
 
     die "'reverse' iteration only supported for default keys\n"
-	if $opts->{reverse} && ($opts->{extra_keys} || $opts->{include_unused});
+        if $opts->{reverse} && ($opts->{extra_keys} || $opts->{include_unused});
 
     my @keys = $class->valid_volume_keys($opts->{reverse});
-    push @keys, @{$opts->{extra_keys}} if $opts->{extra_keys};
+    push @keys, @{ $opts->{extra_keys} } if $opts->{extra_keys};
 
     foreach my $key (@keys) {
-	my $volume_string = $conf->{$key};
-	next if !defined($volume_string);
+        my $volume_string = $conf->{$key};
+        next if !defined($volume_string);
 
-	my $volume = $class->parse_volume($key, $volume_string, 1);
-	next if !defined($volume);
+        my $volume = $class->parse_volume($key, $volume_string, 1);
+        next if !defined($volume);
 
-	$func->($key, $volume, @param);
+        $func->($key, $volume, @param);
     }
 
     $class->foreach_unused_volume($conf, $func, @param) if $opts->{include_unused};
@@ -493,31 +501,31 @@ sub update_volume_ids {
     my $volid_key = $class->volid_key();
 
     my $do_replace = sub {
-	my ($key, $volume, $current_section) = @_;
+        my ($key, $volume, $current_section) = @_;
 
-	my $old_volid = $volume->{$volid_key};
-	if (my $new_volid = $volume_map->{$old_volid}) {
-	    $volume->{$volid_key} = $new_volid;
-	    $current_section->{$key} = $class->print_volume($key, $volume);
-	}
+        my $old_volid = $volume->{$volid_key};
+        if (my $new_volid = $volume_map->{$old_volid}) {
+            $volume->{$volid_key} = $new_volid;
+            $current_section->{$key} = $class->print_volume($key, $volume);
+        }
     };
 
     my $opts = {
-	'include_unused' => 1,
-	'extra_keys' => ['vmstate'],
+        'include_unused' => 1,
+        'extra_keys' => ['vmstate'],
     };
 
     $class->foreach_volume_full($conf, $opts, $do_replace, $conf);
 
     if (defined($conf->{snapshots})) {
-	for my $snap (keys %{$conf->{snapshots}}) {
-	    my $snap_conf = $conf->{snapshots}->{$snap};
-	    $class->foreach_volume_full($snap_conf, $opts, $do_replace, $snap_conf);
-	}
+        for my $snap (keys %{ $conf->{snapshots} }) {
+            my $snap_conf = $conf->{snapshots}->{$snap};
+            $class->foreach_volume_full($snap_conf, $opts, $do_replace, $snap_conf);
+        }
     }
 
     if (defined($conf->{pending})) {
-	$class->foreach_volume_full($conf->{pending}, $opts, $do_replace, $conf->{pending});
+        $class->foreach_volume_full($conf->{pending}, $opts, $do_replace, $conf->{pending});
     }
 }
 
@@ -684,18 +692,18 @@ sub __snapshot_copy_config {
     my ($class, $source, $dest) = @_;
 
     foreach my $k (keys %$source) {
-	next if $k eq 'snapshots';
-	next if $k eq 'snapstate';
-	next if $k eq 'snaptime';
-	next if $k eq 'vmstate';
-	next if $k eq 'lock';
-	next if $k eq 'digest';
-	next if $k eq 'description';
-	next if $k =~ m/^unused\d+$/;
+        next if $k eq 'snapshots';
+        next if $k eq 'snapstate';
+        next if $k eq 'snaptime';
+        next if $k eq 'vmstate';
+        next if $k eq 'lock';
+        next if $k eq 'digest';
+        next if $k eq 'description';
+        next if $k =~ m/^unused\d+$/;
 
-	$dest->{$k} = $source->{$k};
+        $dest->{$k} = $source->{$k};
     }
-};
+}
 
 # Apply the snapshot config $snap to the config $conf (rollback)
 sub __snapshot_apply_config {
@@ -703,14 +711,14 @@ sub __snapshot_apply_config {
 
     # copy snapshot list
     my $newconf = {
-	snapshots => $conf->{snapshots},
+        snapshots => $conf->{snapshots},
     };
 
     # keep description and list of unused disks
     foreach my $k (keys %$conf) {
-	next if !($k =~ m/^unused\d+$/ || $k eq 'description');
+        next if !($k =~ m/^unused\d+$/ || $k eq 'description');
 
-	$newconf->{$k} = $conf->{$k};
+        $newconf->{$k} = $conf->{$k};
     }
 
     $class->__snapshot_copy_config($snap, $newconf);
@@ -724,49 +732,51 @@ sub __snapshot_prepare {
 
     my $snap;
 
-    my $updatefn =  sub {
+    my $updatefn = sub {
 
-	my $conf = $class->load_config($vmid);
+        my $conf = $class->load_config($vmid);
 
-	die "you can't take a snapshot if it's a template\n"
-	    if $class->is_template($conf);
+        die "you can't take a snapshot if it's a template\n"
+            if $class->is_template($conf);
 
-	$class->check_lock($conf);
+        $class->check_lock($conf);
 
-	$class->__snapshot_assert_no_blockers($conf, $save_vmstate);
+        $class->__snapshot_assert_no_blockers($conf, $save_vmstate);
 
-	$conf->{lock} = 'snapshot';
+        $conf->{lock} = 'snapshot';
 
-	my $snapshots = $conf->{snapshots};
+        my $snapshots = $conf->{snapshots};
 
-	die "snapshot name '$snapname' already used\n"
-	    if defined($snapshots->{$snapname});
+        die "snapshot name '$snapname' already used\n"
+            if defined($snapshots->{$snapname});
 
-	my $storecfg = PVE::Storage::config();
-	die "snapshot feature is not available\n"
-	    if !$class->has_feature('snapshot', $conf, $storecfg, undef, undef, $snapname eq 'vzdump');
+        my $storecfg = PVE::Storage::config();
+        die "snapshot feature is not available\n"
+            if !$class->has_feature('snapshot', $conf, $storecfg, undef, undef,
+                $snapname eq 'vzdump');
 
-	for my $snap (sort keys %$snapshots) {
-	    my $parent_name = $snapshots->{$snap}->{parent} // '';
-	    if ($snapname eq $parent_name) {
-		warn "deleting parent '$parent_name' reference from '$snap' to avoid bogus snapshot cycle.\n";
-		delete $snapshots->{$snap}->{parent};
-	    }
-	}
+        for my $snap (sort keys %$snapshots) {
+            my $parent_name = $snapshots->{$snap}->{parent} // '';
+            if ($snapname eq $parent_name) {
+                warn
+                    "deleting parent '$parent_name' reference from '$snap' to avoid bogus snapshot cycle.\n";
+                delete $snapshots->{$snap}->{parent};
+            }
+        }
 
-	$snap = $snapshots->{$snapname} = {};
+        $snap = $snapshots->{$snapname} = {};
 
-	if ($save_vmstate && $class->__snapshot_check_running($vmid)) {
-	    $class->__snapshot_save_vmstate($vmid, $conf, $snapname, $storecfg);
-	}
+        if ($save_vmstate && $class->__snapshot_check_running($vmid)) {
+            $class->__snapshot_save_vmstate($vmid, $conf, $snapname, $storecfg);
+        }
 
-	$class->__snapshot_copy_config($conf, $snap);
+        $class->__snapshot_copy_config($conf, $snap);
 
-	$snap->{snapstate} = "prepare";
-	$snap->{snaptime} = time();
-	$snap->{description} = $comment if $comment;
+        $snap->{snapstate} = "prepare";
+        $snap->{snaptime} = time();
+        $snap->{description} = $comment if $comment;
 
-	$class->write_config($vmid, $conf);
+        $class->write_config($vmid, $conf);
     };
 
     $class->lock_config($vmid, $updatefn);
@@ -780,23 +790,23 @@ sub __snapshot_commit {
 
     my $updatefn = sub {
 
-	my $conf = $class->load_config($vmid);
+        my $conf = $class->load_config($vmid);
 
-	die "missing snapshot lock\n"
-	    if !($conf->{lock} && $conf->{lock} eq 'snapshot');
+        die "missing snapshot lock\n"
+            if !($conf->{lock} && $conf->{lock} eq 'snapshot');
 
-	my $snap = $conf->{snapshots}->{$snapname};
-	die "snapshot '$snapname' does not exist\n" if !defined($snap);
+        my $snap = $conf->{snapshots}->{$snapname};
+        die "snapshot '$snapname' does not exist\n" if !defined($snap);
 
-	die "wrong snapshot state\n"
-	    if !($snap->{snapstate} && $snap->{snapstate} eq "prepare");
+        die "wrong snapshot state\n"
+            if !($snap->{snapstate} && $snap->{snapstate} eq "prepare");
 
-	delete $snap->{snapstate};
-	delete $conf->{lock};
+        delete $snap->{snapstate};
+        delete $conf->{lock};
 
-	$conf->{parent} = $snapname;
+        $conf->{parent} = $snapname;
 
-	$class->write_config($vmid, $conf);
+        $class->write_config($vmid, $conf);
     };
 
     $class->lock_config($vmid, $updatefn);
@@ -821,41 +831,45 @@ sub snapshot_create {
 
     my $conf = $class->load_config($vmid);
 
-    my ($running, $freezefs) = $class->__snapshot_check_freeze_needed($vmid, $conf, $snap->{vmstate});
+    my ($running, $freezefs) =
+        $class->__snapshot_check_freeze_needed($vmid, $conf, $snap->{vmstate});
 
     my $drivehash = {};
 
     eval {
-	$class->__snapshot_activate_storages($conf, 0);
+        $class->__snapshot_activate_storages($conf, 0);
 
-	if ($freezefs) {
-	    $class->__snapshot_freeze($vmid, 0);
-	}
+        if ($freezefs) {
+            $class->__snapshot_freeze($vmid, 0);
+        }
 
-	$class->__snapshot_create_vol_snapshots_hook($vmid, $snap, $running, "before");
+        $class->__snapshot_create_vol_snapshots_hook($vmid, $snap, $running, "before");
 
-	$class->foreach_volume($snap, sub {
-	    my ($vs, $volume) = @_;
+        $class->foreach_volume(
+            $snap,
+            sub {
+                my ($vs, $volume) = @_;
 
-	    $class->__snapshot_create_vol_snapshot($vmid, $vs, $volume, $snapname);
-	    $drivehash->{$vs} = 1;
-	});
+                $class->__snapshot_create_vol_snapshot($vmid, $vs, $volume, $snapname);
+                $drivehash->{$vs} = 1;
+            },
+        );
     };
     my $err = $@;
 
     if ($running) {
-	$class->__snapshot_create_vol_snapshots_hook($vmid, $snap, $running, "after");
-	if ($freezefs) {
-	    $class->__snapshot_freeze($vmid, 1);
-	}
-	$class->__snapshot_create_vol_snapshots_hook($vmid, $snap, $running, "after-unfreeze");
+        $class->__snapshot_create_vol_snapshots_hook($vmid, $snap, $running, "after");
+        if ($freezefs) {
+            $class->__snapshot_freeze($vmid, 1);
+        }
+        $class->__snapshot_create_vol_snapshots_hook($vmid, $snap, $running, "after-unfreeze");
     }
 
     if ($err) {
-	warn "snapshot create failed: starting cleanup\n";
-	eval { $class->snapshot_delete($vmid, $snapname, 1, $drivehash); };
-	warn "$@" if $@;
-	die "$err\n";
+        warn "snapshot create failed: starting cleanup\n";
+        eval { $class->snapshot_delete($vmid, $snapname, 1, $drivehash); };
+        warn "$@" if $@;
+        die "$err\n";
     }
 
     $class->__snapshot_commit($vmid, $snapname);
@@ -875,28 +889,32 @@ my $snapshot_delete_assert_not_needed_by_replication = sub {
 
     my $replication_jobs = $repl_conf->list_guests_local_replication_jobs($vmid);
 
-    $class->foreach_volume($snap, sub {
-	my ($vs, $volume) = @_;
+    $class->foreach_volume(
+        $snap,
+        sub {
+            my ($vs, $volume) = @_;
 
-	my $volid_key = $class->volid_key();
-	my $volid = $volume->{$volid_key};
+            my $volid_key = $class->volid_key();
+            my $volid = $volume->{$volid_key};
 
-	return if !$volumes->{$volid};
+            return if !$volumes->{$volid};
 
-	my $snapshots = PVE::Storage::volume_snapshot_info($storecfg, $volid);
+            my $snapshots = PVE::Storage::volume_snapshot_info($storecfg, $volid);
 
-	for my $job ($replication_jobs->@*) {
-	    my $jobid = $job->{id};
+            for my $job ($replication_jobs->@*) {
+                my $jobid = $job->{id};
 
-	    my @jobs_snapshots = grep {
-		PVE::Replication::is_replication_snapshot($_, $jobid)
-	    } keys $snapshots->%*;
+                my @jobs_snapshots = grep {
+                    PVE::Replication::is_replication_snapshot($_, $jobid)
+                } keys $snapshots->%*;
 
-	    next if scalar(@jobs_snapshots) > 0;
+                next if scalar(@jobs_snapshots) > 0;
 
-	    die "snapshot '$snapname' needed by replication job '$jobid' - run replication first\n";
-	}
-    });
+                die
+                    "snapshot '$snapname' needed by replication job '$jobid' - run replication first\n";
+            }
+        },
+    );
 };
 
 # Deletes a snapshot.
@@ -914,111 +932,123 @@ sub snapshot_delete {
     $class->__snapshot_activate_storages($snap, 1) if !$drivehash;
 
     $snapshot_delete_assert_not_needed_by_replication->($class, $vmid, $conf, $snap, $snapname)
-	if !$drivehash && !$force;
+        if !$drivehash && !$force;
 
     $class->set_lock($vmid, 'snapshot-delete')
-	if (!$drivehash); # doesn't already have a 'snapshot' lock
+        if (!$drivehash); # doesn't already have a 'snapshot' lock
 
     my $expected_lock = $drivehash ? 'snapshot' : 'snapshot-delete';
 
     my $ensure_correct_lock = sub {
-	my ($conf) = @_;
+        my ($conf) = @_;
 
-	die "encountered invalid lock, expected '$expected_lock'\n"
-	    if !$class->has_lock($conf, $expected_lock);
+        die "encountered invalid lock, expected '$expected_lock'\n"
+            if !$class->has_lock($conf, $expected_lock);
     };
 
     my $unlink_parent = sub {
-	my ($confref, $new_parent) = @_;
+        my ($confref, $new_parent) = @_;
 
-	if ($confref->{parent} && $confref->{parent} eq $snapname) {
-	    if ($new_parent) {
-		$confref->{parent} = $new_parent;
-	    } else {
-		delete $confref->{parent};
-	    }
-	}
+        if ($confref->{parent} && $confref->{parent} eq $snapname) {
+            if ($new_parent) {
+                $confref->{parent} = $new_parent;
+            } else {
+                delete $confref->{parent};
+            }
+        }
     };
 
     my $remove_drive = sub {
-	my ($drive) = @_;
+        my ($drive) = @_;
 
-	my $conf = $class->load_config($vmid);
-	$ensure_correct_lock->($conf);
+        my $conf = $class->load_config($vmid);
+        $ensure_correct_lock->($conf);
 
-	$snap = $conf->{snapshots}->{$snapname};
-	die "snapshot '$snapname' does not exist\n" if !defined($snap);
+        $snap = $conf->{snapshots}->{$snapname};
+        die "snapshot '$snapname' does not exist\n" if !defined($snap);
 
-	$class->__snapshot_delete_remove_drive($snap, $drive);
+        $class->__snapshot_delete_remove_drive($snap, $drive);
 
-	$class->write_config($vmid, $conf);
+        $class->write_config($vmid, $conf);
     };
 
     #prepare
-    $class->lock_config($vmid, sub {
-	my $conf = $class->load_config($vmid);
-	$ensure_correct_lock->($conf);
+    $class->lock_config(
+        $vmid,
+        sub {
+            my $conf = $class->load_config($vmid);
+            $ensure_correct_lock->($conf);
 
-	die "you can't delete a snapshot if vm is a template\n"
-	    if $class->is_template($conf);
+            die "you can't delete a snapshot if vm is a template\n"
+                if $class->is_template($conf);
 
-	$snap = $conf->{snapshots}->{$snapname};
-	die "snapshot '$snapname' does not exist\n" if !defined($snap);
+            $snap = $conf->{snapshots}->{$snapname};
+            die "snapshot '$snapname' does not exist\n" if !defined($snap);
 
-	$snap->{snapstate} = 'delete';
+            $snap->{snapstate} = 'delete';
 
-	$class->write_config($vmid, $conf);
-    });
+            $class->write_config($vmid, $conf);
+        },
+    );
 
     # now remove vmstate file
     if ($snap->{vmstate}) {
-	$class->__snapshot_delete_vmstate_file($snap, $force);
+        $class->__snapshot_delete_vmstate_file($snap, $force);
 
-	# save changes (remove vmstate from snapshot)
-	$class->lock_config($vmid, $remove_drive, 'vmstate') if !$force;
-    };
+        # save changes (remove vmstate from snapshot)
+        $class->lock_config($vmid, $remove_drive, 'vmstate') if !$force;
+    }
 
     # now remove all volume snapshots
-    $class->foreach_volume($snap, sub {
-	my ($vs, $volume) = @_;
+    $class->foreach_volume(
+        $snap,
+        sub {
+            my ($vs, $volume) = @_;
 
-	return if $snapname eq 'vzdump' && $vs ne 'rootfs' && !$volume->{backup};
-	if (!$drivehash || $drivehash->{$vs}) {
-	    eval { $class->__snapshot_delete_vol_snapshot($vmid, $vs, $volume, $snapname, $unused); };
-	    if (my $err = $@) {
-		die $err if !$force;
-		warn $err;
-	    }
-	}
+            return if $snapname eq 'vzdump' && $vs ne 'rootfs' && !$volume->{backup};
+            if (!$drivehash || $drivehash->{$vs}) {
+                eval {
+                    $class->__snapshot_delete_vol_snapshot(
+                        $vmid, $vs, $volume, $snapname, $unused,
+                    );
+                };
+                if (my $err = $@) {
+                    die $err if !$force;
+                    warn $err;
+                }
+            }
 
-	# save changes (remove drive from snapshot)
-	$class->lock_config($vmid, $remove_drive, $vs) if !$force;
-    });
+            # save changes (remove drive from snapshot)
+            $class->lock_config($vmid, $remove_drive, $vs) if !$force;
+        },
+    );
 
     # now cleanup config
-    $class->lock_config($vmid, sub {
-	my $conf = $class->load_config($vmid);
-	$ensure_correct_lock->($conf);
+    $class->lock_config(
+        $vmid,
+        sub {
+            my $conf = $class->load_config($vmid);
+            $ensure_correct_lock->($conf);
 
-	$snap = $conf->{snapshots}->{$snapname};
-	die "snapshot '$snapname' does not exist\n" if !defined($snap);
+            $snap = $conf->{snapshots}->{$snapname};
+            die "snapshot '$snapname' does not exist\n" if !defined($snap);
 
-	# remove parent refs
-	&$unlink_parent($conf, $snap->{parent});
-	foreach my $sn (keys %{$conf->{snapshots}}) {
-	    next if $sn eq $snapname;
-	    &$unlink_parent($conf->{snapshots}->{$sn}, $snap->{parent});
-	}
+            # remove parent refs
+            &$unlink_parent($conf, $snap->{parent});
+            foreach my $sn (keys %{ $conf->{snapshots} }) {
+                next if $sn eq $snapname;
+                &$unlink_parent($conf->{snapshots}->{$sn}, $snap->{parent});
+            }
 
+            delete $conf->{snapshots}->{$snapname};
+            delete $conf->{lock};
+            foreach my $volid (@$unused) {
+                $class->add_unused_volume($conf, $volid);
+            }
 
-	delete $conf->{snapshots}->{$snapname};
-	delete $conf->{lock};
-	foreach my $volid (@$unused) {
-	    $class->add_unused_volume($conf, $volid);
-	}
-
-	$class->write_config($vmid, $conf);
-    });
+            $class->write_config($vmid, $conf);
+        },
+    );
 }
 
 # Remove replication snapshots to make a rollback possible.
@@ -1039,47 +1069,50 @@ my $rollback_remove_replication_snapshots = sub {
     my $blocking_snapshots = {};
 
     # filter by what we actually iterate over below (excludes vmstate!)
-    $class->foreach_volume($snap, sub {
-	my ($vs, $volume) = @_;
+    $class->foreach_volume(
+        $snap,
+        sub {
+            my ($vs, $volume) = @_;
 
-	my $volid_key = $class->volid_key();
-	my $volid = $volume->{$volid_key};
+            my $volid_key = $class->volid_key();
+            my $volid = $volume->{$volid_key};
 
-	return if !$volumes->{$volid};
+            return if !$volumes->{$volid};
 
-	my $blockers = [];
-	eval { $class->__snapshot_rollback_vol_possible($volume, $snapname, $blockers); };
-	if (my $err = $@) {
-	    # FIXME die instead, once $blockers is required by the storage plugin API
-	    # and the guest plugins are required to be new enough to support it too.
-	    # Currently, it's not possible to distinguish between blockers being empty
-	    # because the plugin is old versus because there is a different error.
-	    if (scalar($blockers->@*) == 0) {
-		push @{$volids}, $volid;
-		return;
-	    }
+            my $blockers = [];
+            eval { $class->__snapshot_rollback_vol_possible($volume, $snapname, $blockers); };
+            if (my $err = $@) {
+                # FIXME die instead, once $blockers is required by the storage plugin API
+                # and the guest plugins are required to be new enough to support it too.
+                # Currently, it's not possible to distinguish between blockers being empty
+                # because the plugin is old versus because there is a different error.
+                if (scalar($blockers->@*) == 0) {
+                    push @{$volids}, $volid;
+                    return;
+                }
 
-	    for my $blocker ($blockers->@*) {
-		die $err if !PVE::Replication::is_replication_snapshot($blocker);
-	    }
+                for my $blocker ($blockers->@*) {
+                    die $err if !PVE::Replication::is_replication_snapshot($blocker);
+                }
 
-	    $blocking_snapshots->{$volid} = $blockers;
-	}
-    });
+                $blocking_snapshots->{$volid} = $blockers;
+            }
+        },
+    );
 
     my $removed_repl_snapshot;
     for my $volid (sort keys $blocking_snapshots->%*) {
-	my $blockers = $blocking_snapshots->{$volid};
+        my $blockers = $blocking_snapshots->{$volid};
 
-	for my $blocker ($blockers->@*) {
-	    warn "WARN: removing replication snapshot '$volid\@$blocker'\n";
-	    $removed_repl_snapshot = 1;
-	    eval { PVE::Storage::volume_snapshot_delete($storecfg, $volid, $blocker); };
-	    die $@ if $@;
-	}
+        for my $blocker ($blockers->@*) {
+            warn "WARN: removing replication snapshot '$volid\@$blocker'\n";
+            $removed_repl_snapshot = 1;
+            eval { PVE::Storage::volume_snapshot_delete($storecfg, $volid, $blocker); };
+            die $@ if $@;
+        }
     }
     warn "WARN: you shouldn't remove '$snapname' before running the next replication!\n"
-	if $removed_repl_snapshot;
+        if $removed_repl_snapshot;
 
     # Need to keep using a hammer for backwards compatibility...
     # remove all local replication snapshots (jobid => undef)
@@ -1096,79 +1129,85 @@ sub snapshot_rollback {
     my $data = {};
 
     my $get_snapshot_config = sub {
-	my ($conf) = @_;
+        my ($conf) = @_;
 
-	die "you can't rollback if vm is a template\n" if $class->is_template($conf);
+        die "you can't rollback if vm is a template\n" if $class->is_template($conf);
 
-	my $res = $conf->{snapshots}->{$snapname};
+        my $res = $conf->{snapshots}->{$snapname};
 
-	die "snapshot '$snapname' does not exist\n" if !defined($res);
+        die "snapshot '$snapname' does not exist\n" if !defined($res);
 
-	return $res;
+        return $res;
     };
 
     my $snap;
 
     my $updatefn = sub {
-	my $conf = $class->load_config($vmid);
-	$snap = $get_snapshot_config->($conf);
+        my $conf = $class->load_config($vmid);
+        $snap = $get_snapshot_config->($conf);
 
-	if ($prepare) {
-	    $class->__snapshot_activate_storages($snap, 1);
+        if ($prepare) {
+            $class->__snapshot_activate_storages($snap, 1);
 
-	    $rollback_remove_replication_snapshots->($class, $vmid, $snap, $snapname);
+            $rollback_remove_replication_snapshots->($class, $vmid, $snap, $snapname);
 
-	    $class->foreach_volume($snap, sub {
-	       my ($vs, $volume) = @_;
+            $class->foreach_volume(
+                $snap,
+                sub {
+                    my ($vs, $volume) = @_;
 
-	       $class->__snapshot_rollback_vol_possible($volume, $snapname);
-	    });
+                    $class->__snapshot_rollback_vol_possible($volume, $snapname);
+                },
+            );
         }
 
-	die "unable to rollback to incomplete snapshot (snapstate = $snap->{snapstate})\n"
-	    if $snap->{snapstate};
+        die "unable to rollback to incomplete snapshot (snapstate = $snap->{snapstate})\n"
+            if $snap->{snapstate};
 
-	if ($prepare) {
-	    $class->check_lock($conf);
-	    $class->__snapshot_rollback_vm_stop($vmid);
-	}
+        if ($prepare) {
+            $class->check_lock($conf);
+            $class->__snapshot_rollback_vm_stop($vmid);
+        }
 
-	die "unable to rollback vm $vmid: vm is running\n"
-	    if $class->__snapshot_check_running($vmid);
+        die "unable to rollback vm $vmid: vm is running\n"
+            if $class->__snapshot_check_running($vmid);
 
-	if ($prepare) {
-	    $conf->{lock} = 'rollback';
-	} else {
-	    die "got wrong lock\n" if !($conf->{lock} && $conf->{lock} eq 'rollback');
-	    delete $conf->{lock};
+        if ($prepare) {
+            $conf->{lock} = 'rollback';
+        } else {
+            die "got wrong lock\n" if !($conf->{lock} && $conf->{lock} eq 'rollback');
+            delete $conf->{lock};
 
-	    my $unused = $class->__snapshot_rollback_get_unused($conf, $snap);
+            my $unused = $class->__snapshot_rollback_get_unused($conf, $snap);
 
-	    foreach my $volid (@$unused) {
-		$class->add_unused_volume($conf, $volid);
-	    }
+            foreach my $volid (@$unused) {
+                $class->add_unused_volume($conf, $volid);
+            }
 
-	    # copy snapshot config to current config
-	    $conf = $class->__snapshot_apply_config($conf, $snap);
-	    $conf->{parent} = $snapname;
-	}
+            # copy snapshot config to current config
+            $conf = $class->__snapshot_apply_config($conf, $snap);
+            $conf->{parent} = $snapname;
+        }
 
-	$class->__snapshot_rollback_hook($vmid, $conf, $snap, $prepare, $data);
+        $class->__snapshot_rollback_hook($vmid, $conf, $snap, $prepare, $data);
 
-	$class->write_config($vmid, $conf);
+        $class->write_config($vmid, $conf);
 
-	if (!$prepare && $snap->{vmstate}) {
-	    $class->__snapshot_rollback_vm_start($vmid, $snap->{vmstate}, $data);
-	}
+        if (!$prepare && $snap->{vmstate}) {
+            $class->__snapshot_rollback_vm_start($vmid, $snap->{vmstate}, $data);
+        }
     };
 
     $class->lock_config($vmid, $updatefn);
 
-    $class->foreach_volume($snap, sub {
-	my ($vs, $volume) = @_;
+    $class->foreach_volume(
+        $snap,
+        sub {
+            my ($vs, $volume) = @_;
 
-	$class->__snapshot_rollback_vol_rollback($volume, $snapname);
-    });
+            $class->__snapshot_rollback_vol_rollback($volume, $snapname);
+        },
+    );
 
     $prepare = 0;
     $class->lock_config($vmid, $updatefn);
@@ -1189,9 +1228,9 @@ sub snapshot_list {
     my ($class, $vmid) = @_;
 
     my $snapshot = eval {
-	my $conf = $class->load_config($vmid);
-	my $snapshots = $conf->{snapshots} || [];
-	[ sort keys %$snapshots ]
+        my $conf = $class->load_config($vmid);
+        my $snapshots = $conf->{snapshots} || [];
+        [sort keys %$snapshots];
     } || [];
 
     return $snapshot;

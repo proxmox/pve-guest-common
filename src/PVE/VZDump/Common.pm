@@ -12,9 +12,7 @@ use PVE::JSONSchema qw(get_standard_option);
 
 # NOTE: this is the legacy config, nowadays jobs.cfg is used (handled in pve-manager)
 cfs_register_file(
-    'vzdump.cron',
-    \&parse_vzdump_cron_config,
-    \&write_vzdump_cron_config,
+    'vzdump.cron', \&parse_vzdump_cron_config, \&write_vzdump_cron_config,
 );
 
 my $dowhash_to_dow = sub {
@@ -42,10 +40,10 @@ my sub parse_property_strings {
     my ($opts) = @_;
 
     for my $opt (keys $PROPERTY_STRINGS->%*) {
-	next if !defined($opts->{$opt});
+        next if !defined($opts->{$opt});
 
-	my $format = $PROPERTY_STRINGS->{$opt};
-	$opts->{$opt} = PVE::JSONSchema::parse_property_string($format, $opts->{$opt});
+        my $format = $PROPERTY_STRINGS->{$opt};
+        $opts->{$opt} = PVE::JSONSchema::parse_property_string($format, $opts->{$opt});
     }
 }
 
@@ -53,312 +51,358 @@ my sub parse_property_strings {
 sub parse_dow {
     my ($dowstr, $noerr) = @_;
 
-    my $dowmap = {mon => 1, tue => 2, wed => 3, thu => 4,
-		  fri => 5, sat => 6, sun => 7};
-    my $rdowmap = { '1' => 'mon', '2' => 'tue', '3' => 'wed', '4' => 'thu',
-		    '5' => 'fri', '6' => 'sat', '7' => 'sun', '0' => 'sun'};
+    my $dowmap = {
+        mon => 1,
+        tue => 2,
+        wed => 3,
+        thu => 4,
+        fri => 5,
+        sat => 6,
+        sun => 7,
+    };
+    my $rdowmap = {
+        '1' => 'mon',
+        '2' => 'tue',
+        '3' => 'wed',
+        '4' => 'thu',
+        '5' => 'fri',
+        '6' => 'sat',
+        '7' => 'sun',
+        '0' => 'sun',
+    };
 
     my $res = {};
 
     $dowstr = '1,2,3,4,5,6,7' if $dowstr eq '*';
 
     foreach my $day (PVE::Tools::split_list($dowstr)) {
-	if ($day =~ m/^(mon|tue|wed|thu|fri|sat|sun)-(mon|tue|wed|thu|fri|sat|sun)$/i) {
-	    for (my $i = $dowmap->{lc($1)}; $i <= $dowmap->{lc($2)}; $i++) {
-		my $r = $rdowmap->{$i};
-		$res->{$r} = 1;
-	    }
-	} elsif ($day =~ m/^(mon|tue|wed|thu|fri|sat|sun|[0-7])$/i) {
-	    $day = $rdowmap->{$day} if $day =~ m/\d/;
-	    $res->{lc($day)} = 1;
-	} else {
-	    return undef if $noerr;
-	    die "unable to parse day of week '$dowstr'\n";
-	}
+        if ($day =~ m/^(mon|tue|wed|thu|fri|sat|sun)-(mon|tue|wed|thu|fri|sat|sun)$/i) {
+            for (my $i = $dowmap->{ lc($1) }; $i <= $dowmap->{ lc($2) }; $i++) {
+                my $r = $rdowmap->{$i};
+                $res->{$r} = 1;
+            }
+        } elsif ($day =~ m/^(mon|tue|wed|thu|fri|sat|sun|[0-7])$/i) {
+            $day = $rdowmap->{$day} if $day =~ m/\d/;
+            $res->{ lc($day) } = 1;
+        } else {
+            return undef if $noerr;
+            die "unable to parse day of week '$dowstr'\n";
+        }
     }
 
     return $res;
-};
+}
 
-PVE::JSONSchema::register_format('backup-fleecing', {
-    enabled => {
-	description => "Enable backup fleecing. Cache backup data from blocks where new guest"
-	    ." writes happen on specified storage instead of copying them directly to the backup"
-	    ." target. This can help guest IO performance and even prevent hangs, at the cost of"
-	    ." requiring more storage space.",
-	type => 'boolean',
-	default => 0,
-	optional => 1,
-	default_key => 1,
+PVE::JSONSchema::register_format(
+    'backup-fleecing',
+    {
+        enabled => {
+            description =>
+                "Enable backup fleecing. Cache backup data from blocks where new guest"
+                . " writes happen on specified storage instead of copying them directly to the backup"
+                . " target. This can help guest IO performance and even prevent hangs, at the cost of"
+                . " requiring more storage space.",
+            type => 'boolean',
+            default => 0,
+            optional => 1,
+            default_key => 1,
+        },
+        storage => get_standard_option(
+            'pve-storage-id',
+            {
+                description =>
+                    "Use this storage to storage fleecing images. For efficient space usage,"
+                    . " it's best to use a local storage that supports discard and either thin provisioning"
+                    . " or sparse files.",
+                optional => 1,
+            },
+        ),
     },
-    storage => get_standard_option('pve-storage-id', {
-	description => "Use this storage to storage fleecing images. For efficient space usage,"
-	    ." it's best to use a local storage that supports discard and either thin provisioning"
-	    ." or sparse files.",
-	optional => 1,
-    }),
-}, \&verify_backup_fleecing);
+    \&verify_backup_fleecing,
+);
 
 sub verify_backup_fleecing {
     my ($param, $noerr) = @_;
 
     if (!$param->{storage} && $param->{enabled}) {
-	return if $noerr;
-	die "'storage' parameter is required when 'enabled' is set\n";
+        return if $noerr;
+        die "'storage' parameter is required when 'enabled' is set\n";
     }
 
     return $param;
 }
 
-PVE::JSONSchema::register_format('backup-performance', {
-    'max-workers' => {
-	description => "Applies to VMs. Allow up to this many IO workers at the same time.",
-	type => 'integer',
-	minimum => 1,
-	maximum => 256,
-	default => 16,
-	optional => 1,
+PVE::JSONSchema::register_format(
+    'backup-performance',
+    {
+        'max-workers' => {
+            description => "Applies to VMs. Allow up to this many IO workers at the same time.",
+            type => 'integer',
+            minimum => 1,
+            maximum => 256,
+            default => 16,
+            optional => 1,
+        },
+        'pbs-entries-max' => {
+            description =>
+                "Applies to container backups sent to PBS. Limits the number of entries"
+                . " allowed in memory at a given time to avoid unintended OOM situations. Increase it to"
+                . " enable backups of containers with a large amount of files.",
+            type => 'integer',
+            minimum => 1,
+            default => 1048576,
+            optional => 1,
+        },
     },
-    'pbs-entries-max' => {
-	description => "Applies to container backups sent to PBS. Limits the number of entries"
-	    ." allowed in memory at a given time to avoid unintended OOM situations. Increase it to"
-	    ." enable backups of containers with a large amount of files.",
-	type => 'integer',
-	minimum => 1,
-	default => 1048576,
-	optional => 1,
-    },
-});
+);
 
 my $confdesc = {
     vmid => {
-	type => 'string', format => 'pve-vmid-list',
-	description => "The ID of the guest system you want to backup.",
-	completion => \&PVE::Cluster::complete_local_vmid,
-	optional => 1,
+        type => 'string',
+        format => 'pve-vmid-list',
+        description => "The ID of the guest system you want to backup.",
+        completion => \&PVE::Cluster::complete_local_vmid,
+        optional => 1,
     },
-    node => get_standard_option('pve-node', {
-	description => "Only run if executed on this node.",
-	completion => \&PVE::Cluster::get_nodelist,
-	optional => 1,
-    }),
+    node => get_standard_option(
+        'pve-node',
+        {
+            description => "Only run if executed on this node.",
+            completion => \&PVE::Cluster::get_nodelist,
+            optional => 1,
+        },
+    ),
     all => {
-	type => 'boolean',
-	description => "Backup all known guest systems on this host.",
-	optional => 1,
-	default => 0,
+        type => 'boolean',
+        description => "Backup all known guest systems on this host.",
+        optional => 1,
+        default => 0,
     },
     stdexcludes => {
-	type => 'boolean',
-	description => "Exclude temporary files and logs.",
-	optional => 1,
-	default => 1,
+        type => 'boolean',
+        description => "Exclude temporary files and logs.",
+        optional => 1,
+        default => 1,
     },
     compress => {
-	type => 'string',
-	description => "Compress dump file.",
-	optional => 1,
-	enum => ['0', '1', 'gzip', 'lzo', 'zstd'],
-	default => '0',
+        type => 'string',
+        description => "Compress dump file.",
+        optional => 1,
+        enum => ['0', '1', 'gzip', 'lzo', 'zstd'],
+        default => '0',
     },
-    pigz=> {
-	type => "integer",
-	description => "Use pigz instead of gzip when N>0. N=1 uses half of cores, N>1 uses N as"
-	    ." thread count.",
-	optional => 1,
-	default => 0,
+    pigz => {
+        type => "integer",
+        description =>
+            "Use pigz instead of gzip when N>0. N=1 uses half of cores, N>1 uses N as"
+            . " thread count.",
+        optional => 1,
+        default => 0,
     },
     zstd => {
-	type => "integer",
-	description => "Zstd threads. N=0 uses half of the available cores, if N is set to a value"
-	    ." bigger than 0, N is used as thread count.",
-	optional => 1,
-	default => 1,
+        type => "integer",
+        description =>
+            "Zstd threads. N=0 uses half of the available cores, if N is set to a value"
+            . " bigger than 0, N is used as thread count.",
+        optional => 1,
+        default => 1,
     },
     quiet => {
-	type => 'boolean',
-	description => "Be quiet.",
-	optional => 1,
-	default => 0,
+        type => 'boolean',
+        description => "Be quiet.",
+        optional => 1,
+        default => 0,
     },
     mode => {
-	type => 'string',
-	description => "Backup mode.",
-	optional => 1,
-	default => 'snapshot',
-	enum => [ 'snapshot', 'suspend', 'stop' ],
+        type => 'string',
+        description => "Backup mode.",
+        optional => 1,
+        default => 'snapshot',
+        enum => ['snapshot', 'suspend', 'stop'],
     },
     exclude => {
-	type => 'string', format => 'pve-vmid-list',
-	description => "Exclude specified guest systems (assumes --all)",
-	optional => 1,
+        type => 'string',
+        format => 'pve-vmid-list',
+        description => "Exclude specified guest systems (assumes --all)",
+        optional => 1,
     },
     'exclude-path' => {
-	type => 'array',
-	description => "Exclude certain files/directories (shell globs). Paths starting with '/'"
-	    ." are anchored to the container's root, other paths match relative to each"
-	    ." subdirectory.",
-	optional => 1,
-	items => {
-	    type => 'string',
-	},
+        type => 'array',
+        description =>
+            "Exclude certain files/directories (shell globs). Paths starting with '/'"
+            . " are anchored to the container's root, other paths match relative to each"
+            . " subdirectory.",
+        optional => 1,
+        items => {
+            type => 'string',
+        },
     },
     mailto => {
-	type => 'string',
-	format => 'email-or-username-list',
-	description => "Deprecated: Use notification targets/matchers instead. Comma-separated list"
-	    ." of email addresses or users that should receive email notifications.",
-	optional => 1,
+        type => 'string',
+        format => 'email-or-username-list',
+        description =>
+            "Deprecated: Use notification targets/matchers instead. Comma-separated list"
+            . " of email addresses or users that should receive email notifications.",
+        optional => 1,
     },
     mailnotification => {
-	type => 'string',
-	description => "Deprecated: use notification targets/matchers instead." .
-	    " Specify when to send a notification mail",
-	optional => 1,
-	enum => [ 'always', 'failure' ],
-	default => 'always',
+        type => 'string',
+        description => "Deprecated: use notification targets/matchers instead."
+            . " Specify when to send a notification mail",
+        optional => 1,
+        enum => ['always', 'failure'],
+        default => 'always',
     },
     'notification-mode' => {
-	type => 'string',
-	description => "Determine which notification system to use. If set to 'legacy-sendmail',"
-	    ." vzdump will consider the mailto/mailnotification parameters and send emails to the"
-	    ." specified address(es) via the 'sendmail' command. If set to 'notification-system',"
-	    ." a notification will be sent via PVE's notification system, and the mailto and"
-	    ." mailnotification will be ignored. If set to 'auto' (default setting), an email will"
-	    ." be sent if mailto is set, and the notification system will be used if not.",
-	optional => 1,
-	enum => ['auto', 'legacy-sendmail', 'notification-system'],
-	default => 'auto',
+        type => 'string',
+        description =>
+            "Determine which notification system to use. If set to 'legacy-sendmail',"
+            . " vzdump will consider the mailto/mailnotification parameters and send emails to the"
+            . " specified address(es) via the 'sendmail' command. If set to 'notification-system',"
+            . " a notification will be sent via PVE's notification system, and the mailto and"
+            . " mailnotification will be ignored. If set to 'auto' (default setting), an email will"
+            . " be sent if mailto is set, and the notification system will be used if not.",
+        optional => 1,
+        enum => ['auto', 'legacy-sendmail', 'notification-system'],
+        default => 'auto',
     },
     'notification-policy' => {
-	type => 'string',
-	description => "Deprecated: Do not use",
-	optional => 1,
-	enum => [ 'always', 'failure', 'never'],
-	default => 'always',
+        type => 'string',
+        description => "Deprecated: Do not use",
+        optional => 1,
+        enum => ['always', 'failure', 'never'],
+        default => 'always',
     },
     'notification-target' => {
-	type => 'string',
-	format => 'pve-configid',
-	description => "Deprecated: Do not use",
-	optional => 1,
+        type => 'string',
+        format => 'pve-configid',
+        description => "Deprecated: Do not use",
+        optional => 1,
     },
     tmpdir => {
-	type => 'string',
-	description => "Store temporary files to specified directory.",
-	optional => 1,
+        type => 'string',
+        description => "Store temporary files to specified directory.",
+        optional => 1,
     },
     dumpdir => {
-	type => 'string',
-	description => "Store resulting files to specified directory.",
-	optional => 1,
+        type => 'string',
+        description => "Store resulting files to specified directory.",
+        optional => 1,
     },
     script => {
-	type => 'string',
-	description => "Use specified hook script.",
-	optional => 1,
+        type => 'string',
+        description => "Use specified hook script.",
+        optional => 1,
     },
-    storage => get_standard_option('pve-storage-id', {
-	description => "Store resulting file to this storage.",
-	completion => \&complete_backup_storage,
-	optional => 1,
-    }),
+    storage => get_standard_option(
+        'pve-storage-id',
+        {
+            description => "Store resulting file to this storage.",
+            completion => \&complete_backup_storage,
+            optional => 1,
+        },
+    ),
     stop => {
-	type => 'boolean',
-	description => "Stop running backup jobs on this host.",
-	optional => 1,
-	default => 0,
+        type => 'boolean',
+        description => "Stop running backup jobs on this host.",
+        optional => 1,
+        default => 0,
     },
     bwlimit => {
-	type => 'integer',
-	description => "Limit I/O bandwidth (in KiB/s).",
-	optional => 1,
-	minimum => 0,
-	default => 0,
+        type => 'integer',
+        description => "Limit I/O bandwidth (in KiB/s).",
+        optional => 1,
+        minimum => 0,
+        default => 0,
     },
     ionice => {
-	type => 'integer',
-	description => "Set IO priority when using the BFQ scheduler. For snapshot and suspend"
-	    ." mode backups of VMs, this only affects the compressor. A value of 8 means the idle"
-	    ." priority is used, otherwise the best-effort priority is used with the specified"
-	    ." value.",
-	optional => 1,
-	minimum => 0,
-	maximum => 8,
-	default => 7,
+        type => 'integer',
+        description => "Set IO priority when using the BFQ scheduler. For snapshot and suspend"
+            . " mode backups of VMs, this only affects the compressor. A value of 8 means the idle"
+            . " priority is used, otherwise the best-effort priority is used with the specified"
+            . " value.",
+        optional => 1,
+        minimum => 0,
+        maximum => 8,
+        default => 7,
     },
     performance => {
-	type => 'string',
-	description => "Other performance-related settings.",
-	format => 'backup-performance',
-	optional => 1,
+        type => 'string',
+        description => "Other performance-related settings.",
+        format => 'backup-performance',
+        optional => 1,
     },
     fleecing => {
-	type => 'string',
-	description => "Options for backup fleecing (VM only).",
-	format => 'backup-fleecing',
-	optional => 1,
+        type => 'string',
+        description => "Options for backup fleecing (VM only).",
+        format => 'backup-fleecing',
+        optional => 1,
     },
     lockwait => {
-	type => 'integer',
-	description => "Maximal time to wait for the global lock (minutes).",
-	optional => 1,
-	minimum => 0,
-	default => 3*60, # 3 hours
+        type => 'integer',
+        description => "Maximal time to wait for the global lock (minutes).",
+        optional => 1,
+        minimum => 0,
+        default => 3 * 60, # 3 hours
     },
     stopwait => {
-	type => 'integer',
-	description => "Maximal time to wait until a guest system is stopped (minutes).",
-	optional => 1,
-	minimum => 0,
-	default => 10, # 10 minutes
+        type => 'integer',
+        description => "Maximal time to wait until a guest system is stopped (minutes).",
+        optional => 1,
+        minimum => 0,
+        default => 10, # 10 minutes
     },
     # FIXME remove with PVE 8.0 or PVE 9.0
     maxfiles => {
-	type => 'integer',
-	description => "Deprecated: use 'prune-backups' instead. " .
-	    "Maximal number of backup files per guest system.",
-	optional => 1,
-	minimum => 1,
+        type => 'integer',
+        description => "Deprecated: use 'prune-backups' instead. "
+            . "Maximal number of backup files per guest system.",
+        optional => 1,
+        minimum => 1,
     },
-    'prune-backups' => get_standard_option('prune-backups', {
-	description => "Use these retention options instead of those from the storage configuration.",
-	optional => 1,
-	default => "keep-all=1",
-    }),
+    'prune-backups' => get_standard_option(
+        'prune-backups',
+        {
+            description =>
+                "Use these retention options instead of those from the storage configuration.",
+            optional => 1,
+            default => "keep-all=1",
+        },
+    ),
     remove => {
-	type => 'boolean',
-	description => "Prune older backups according to 'prune-backups'.",
-	optional => 1,
-	default => 1,
+        type => 'boolean',
+        description => "Prune older backups according to 'prune-backups'.",
+        optional => 1,
+        default => 1,
     },
     pool => {
-	type => 'string',
-	description => 'Backup all known guest systems included in the specified pool.',
-	optional => 1,
+        type => 'string',
+        description => 'Backup all known guest systems included in the specified pool.',
+        optional => 1,
     },
     'notes-template' => {
-	type => 'string',
-	description => "Template string for generating notes for the backup(s). It can contain"
-	    ." variables which will be replaced by their values. Currently supported are"
-	    ." {{cluster}}, {{guestname}}, {{node}}, and {{vmid}}, but more might be added in the"
-	    ." future. Needs to be a single line, newline and backslash need to be escaped as '\\n'"
-	    ." and '\\\\' respectively.",
-	requires => 'storage',
-	maxLength => 1024,
-	optional => 1,
+        type => 'string',
+        description => "Template string for generating notes for the backup(s). It can contain"
+            . " variables which will be replaced by their values. Currently supported are"
+            . " {{cluster}}, {{guestname}}, {{node}}, and {{vmid}}, but more might be added in the"
+            . " future. Needs to be a single line, newline and backslash need to be escaped as '\\n'"
+            . " and '\\\\' respectively.",
+        requires => 'storage',
+        maxLength => 1024,
+        optional => 1,
     },
     protected => {
-	type => 'boolean',
-	description => "If true, mark backup(s) as protected.",
-	requires => 'storage',
-	optional => 1,
+        type => 'boolean',
+        description => "If true, mark backup(s) as protected.",
+        requires => 'storage',
+        optional => 1,
     },
     'pbs-change-detection-mode' => {
-	type => 'string',
-	description => "PBS mode used to detect file changes and switch encoding format for container backups.",
-	optional => 1,
-	enum => [ 'legacy', 'data', 'metadata' ],
+        type => 'string',
+        description =>
+            "PBS mode used to detect file changes and switch encoding format for container backups.",
+        optional => 1,
+        enum => ['legacy', 'data', 'metadata'],
     },
 };
 
@@ -371,7 +415,7 @@ sub json_config_properties {
     my $prop = shift;
 
     foreach my $opt (keys %$confdesc) {
-	$prop->{$opt} = $confdesc->{$opt};
+        $prop->{$opt} = $confdesc->{$opt};
     }
 
     return $prop;
@@ -394,47 +438,47 @@ sub parse_vzdump_cron_config {
     my $digest = Digest::SHA::sha1_hex(defined($raw) ? $raw : '');
 
     while ($raw && $raw =~ s/^(.*?)(\n|$)//) {
-	my $line = $1;
+        my $line = $1;
 
-	next if $line =~ m/^\#/;
-	next if $line =~ m/^\s*$/;
-	next if $line =~ m/^PATH\s*=/; # we always overwrite path
+        next if $line =~ m/^\#/;
+        next if $line =~ m/^\s*$/;
+        next if $line =~ m/^PATH\s*=/; # we always overwrite path
 
-	if ($line =~ m|^(\d+)\s+(\d+)\s+\*\s+\*\s+(\S+)\s+root\s+(/\S+/)?(#)?vzdump(\s+(.*))?$|) {
-	    eval {
-		my $minute = int($1);
-		my $hour = int($2);
-		my $dow = $3;
-		my $param = $7;
-		my $enabled = $5;
+        if ($line =~ m|^(\d+)\s+(\d+)\s+\*\s+\*\s+(\S+)\s+root\s+(/\S+/)?(#)?vzdump(\s+(.*))?$|) {
+            eval {
+                my $minute = int($1);
+                my $hour = int($2);
+                my $dow = $3;
+                my $param = $7;
+                my $enabled = $5;
 
-		my $dowhash = parse_dow($dow, 1);
-		die "unable to parse day of week '$dow' in '$filename'\n" if !$dowhash;
+                my $dowhash = parse_dow($dow, 1);
+                die "unable to parse day of week '$dow' in '$filename'\n" if !$dowhash;
 
-		my $args = PVE::Tools::split_args($param);
-		my $opts = PVE::JSONSchema::get_options($vzdump_properties, $args, 'vmid');
+                my $args = PVE::Tools::split_args($param);
+                my $opts = PVE::JSONSchema::get_options($vzdump_properties, $args, 'vmid');
 
-		$opts->{enabled} = !defined($enabled);
-		$opts->{id} = "$digest:$jid";
-		$jid++;
-		$opts->{starttime} = sprintf "%02d:%02d", $hour, $minute;
-		$opts->{dow} = &$dowhash_to_dow($dowhash);
+                $opts->{enabled} = !defined($enabled);
+                $opts->{id} = "$digest:$jid";
+                $jid++;
+                $opts->{starttime} = sprintf "%02d:%02d", $hour, $minute;
+                $opts->{dow} = &$dowhash_to_dow($dowhash);
 
-		parse_property_strings($opts);
+                parse_property_strings($opts);
 
-		push @$jobs, $opts;
-	    };
-	    my $err = $@;
-	    if ($err) {
-		syslog ('err', "parse error in '$filename': $err");
-		push @$ejobs, { line => $line };
-	    }
-	} elsif ($line =~ m|^\S+\s+(\S+)\s+\S+\s+\S+\s+\S+\s+\S+\s+(\S.*)$|) {
-	    syslog ('err', "warning: malformed line in '$filename'");
-	    push @$ejobs, { line => $line };
-	} else {
-	    syslog ('err', "ignoring malformed line in '$filename'");
-	}
+                push @$jobs, $opts;
+            };
+            my $err = $@;
+            if ($err) {
+                syslog('err', "parse error in '$filename': $err");
+                push @$ejobs, { line => $line };
+            }
+        } elsif ($line =~ m|^\S+\s+(\S+)\s+\S+\s+\S+\s+\S+\s+\S+\s+(\S.*)$|) {
+            syslog('err', "warning: malformed line in '$filename'");
+            push @$ejobs, { line => $line };
+        } else {
+            syslog('err', "ignoring malformed line in '$filename'");
+        }
     }
 
     my $res = {};
@@ -454,38 +498,45 @@ sub write_vzdump_cron_config {
 
     my $jobs = $cfg->{jobs} || [];
     foreach my $job (@$jobs) {
-	my $enabled = ($job->{enabled}) ? '' : '#';
-	my $dh = parse_dow($job->{dow});
-	my $dow;
-	if ($dh->{mon} && $dh->{tue} && $dh->{wed} && $dh->{thu} &&
-	    $dh->{fri} && $dh->{sat} && $dh->{sun}) {
-	    $dow = '*';
-	} else {
-	    $dow = &$dowhash_to_dow($dh, 1);
-	    $dow = '*' if !$dow;
-	}
+        my $enabled = ($job->{enabled}) ? '' : '#';
+        my $dh = parse_dow($job->{dow});
+        my $dow;
+        if (
+            $dh->{mon}
+            && $dh->{tue}
+            && $dh->{wed}
+            && $dh->{thu}
+            && $dh->{fri}
+            && $dh->{sat}
+            && $dh->{sun}
+        ) {
+            $dow = '*';
+        } else {
+            $dow = &$dowhash_to_dow($dh, 1);
+            $dow = '*' if !$dow;
+        }
 
-	my ($hour, $minute);
+        my ($hour, $minute);
 
-	die "no job start time specified\n" if !$job->{starttime};
-	if ($job->{starttime} =~ m/^(\d{1,2}):(\d{1,2})$/) {
-	    ($hour, $minute) = (int($1), int($2));
-	    die "hour '$hour' out of range\n" if $hour < 0 || $hour > 23;
-	    die "minute '$minute' out of range\n" if $minute < 0 || $minute > 59;
-	} else {
-	    die "unable to parse job start time\n";
-	}
+        die "no job start time specified\n" if !$job->{starttime};
+        if ($job->{starttime} =~ m/^(\d{1,2}):(\d{1,2})$/) {
+            ($hour, $minute) = (int($1), int($2));
+            die "hour '$hour' out of range\n" if $hour < 0 || $hour > 23;
+            die "minute '$minute' out of range\n" if $minute < 0 || $minute > 59;
+        } else {
+            die "unable to parse job start time\n";
+        }
 
-	$job->{quiet} = 1; # we do not want messages from cron
+        $job->{quiet} = 1; # we do not want messages from cron
 
-	my $cmd = command_line($job);
+        my $cmd = command_line($job);
 
-	$out .= sprintf "$minute $hour * * %-11s root $enabled$cmd\n", $dow;
+        $out .= sprintf "$minute $hour * * %-11s root $enabled$cmd\n", $dow;
     }
 
     my $ejobs = $cfg->{ejobs} || [];
     foreach my $job (@$ejobs) {
-	$out .= "$job->{line}\n" if $job->{line};
+        $out .= "$job->{line}\n" if $job->{line};
     }
 
     return $out;
@@ -497,25 +548,31 @@ sub command_line {
     my $cmd = "vzdump";
 
     if ($param->{vmid}) {
-	$cmd .= " " . join(' ', PVE::Tools::split_list($param->{vmid}));
+        $cmd .= " " . join(' ', PVE::Tools::split_list($param->{vmid}));
     }
 
     foreach my $p (keys %$param) {
-	next if $p eq 'id' || $p eq 'vmid' || $p eq 'starttime' ||
-	        $p eq 'dow' || $p eq 'stdout' || $p eq 'enabled' || $p eq 'job-id';
-	my $v = $param->{$p};
-	my $pd = $confdesc->{$p} || die "no such vzdump option '$p'\n";
-	if ($p eq 'exclude-path') {
-	    foreach my $path (@$v) {
-		$cmd .= " --$p " . PVE::Tools::shellquote($path);
-	    }
-	} else {
-	    $v = join(",", PVE::Tools::split_list($v)) if $p eq 'mailto';
-	    $v = PVE::JSONSchema::print_property_string($v, $PROPERTY_STRINGS->{$p})
-		if $PROPERTY_STRINGS->{$p};
+        next
+            if $p eq 'id'
+            || $p eq 'vmid'
+            || $p eq 'starttime'
+            || $p eq 'dow'
+            || $p eq 'stdout'
+            || $p eq 'enabled'
+            || $p eq 'job-id';
+        my $v = $param->{$p};
+        my $pd = $confdesc->{$p} || die "no such vzdump option '$p'\n";
+        if ($p eq 'exclude-path') {
+            foreach my $path (@$v) {
+                $cmd .= " --$p " . PVE::Tools::shellquote($path);
+            }
+        } else {
+            $v = join(",", PVE::Tools::split_list($v)) if $p eq 'mailto';
+            $v = PVE::JSONSchema::print_property_string($v, $PROPERTY_STRINGS->{$p})
+                if $PROPERTY_STRINGS->{$p};
 
-	    $cmd .= " --$p " . PVE::Tools::shellquote($v) if defined($v) && $v ne '';
-	}
+            $cmd .= " --$p " . PVE::Tools::shellquote($v) if defined($v) && $v ne '';
+        }
     }
 
     return $cmd;
@@ -531,10 +588,10 @@ sub complete_backup_storage {
 
     my $res = [];
     foreach my $sid (keys %$ids) {
-	my $scfg = $ids->{$sid};
-	next if !PVE::Storage::storage_check_enabled($cfg, $sid, $nodename, 1);
-	next if !$scfg->{content}->{backup};
-	push @$res, $sid;
+        my $scfg = $ids->{$sid};
+        next if !PVE::Storage::storage_check_enabled($cfg, $sid, $nodename, 1);
+        next if !$scfg->{content}->{backup};
+        push @$res, $sid;
     }
 
     return $res;

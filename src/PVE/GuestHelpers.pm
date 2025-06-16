@@ -19,13 +19,13 @@ eval {
 use base qw(Exporter);
 
 our @EXPORT_OK = qw(
-assert_tag_permissions
-check_vnet_access
-get_allowed_tags
-safe_boolean_ne
-safe_num_ne
-safe_string_ne
-typesafe_ne
+    assert_tag_permissions
+    check_vnet_access
+    get_allowed_tags
+    safe_boolean_ne
+    safe_num_ne
+    safe_string_ne
+    typesafe_ne
 );
 
 # We use a separate lock to block migration while a replication job
@@ -45,7 +45,7 @@ sub safe_num_ne {
     return $a != $b;
 }
 
-sub safe_string_ne  {
+sub safe_string_ne {
     my ($a, $b) = @_;
 
     return 0 if !defined($a) && !defined($b);
@@ -73,16 +73,15 @@ sub typesafe_ne {
     return 1 if !defined($b);
 
     if ($type eq 'string') {
-	return safe_string_ne($a, $b);
+        return safe_string_ne($a, $b);
     } elsif ($type eq 'number' || $type eq 'integer') {
-	return safe_num_ne($a, $b);
+        return safe_num_ne($a, $b);
     } elsif ($type eq 'boolean') {
-	return safe_boolean_ne($a, $b);
+        return safe_boolean_ne($a, $b);
     }
 
     die "internal error: can't compare $a and $b with type $type";
 }
-
 
 sub guest_migration_lock {
     my ($vmid, $timeout, $func, @param) = @_;
@@ -104,13 +103,13 @@ sub check_hookscript {
     my ($path, undef, $type) = PVE::Storage::path($storecfg, $volid);
 
     die "'$volid' is not in the snippets directory\n"
-	if $type ne 'snippets';
+        if $type ne 'snippets';
 
     die "script '$volid' does not exist\n"
-	if ! -f $path;
+        if !-f $path;
 
     die "script '$volid' is not executable\n"
-	if ! -x $path;
+        if !-x $path;
 
     return $path;
 }
@@ -121,15 +120,15 @@ sub exec_hookscript {
     return if !$conf->{hookscript};
 
     eval {
-	my $hookscript = check_hookscript($conf->{hookscript});
-	die $@ if $@;
+        my $hookscript = check_hookscript($conf->{hookscript});
+        die $@ if $@;
 
-	PVE::Tools::run_command([$hookscript, $vmid, $phase]);
+        PVE::Tools::run_command([$hookscript, $vmid, $phase]);
     };
     if (my $err = $@) {
-	my $errmsg = "hookscript error for $vmid on $phase: $err\n";
-	die $errmsg if ($stop_on_error);
-	warn $errmsg;
+        my $errmsg = "hookscript error for $vmid on $phase: $err\n";
+        die $errmsg if ($stop_on_error);
+        warn $errmsg;
     }
 }
 
@@ -142,77 +141,77 @@ sub print_snapshot_tree {
 
     my @roots;
     foreach my $e (@$snapshot_list) {
-	my $parent;
-	if (($parent = $e->{parent}) && defined $snapshots->{$parent}) {
-	    push @{$snapshots->{$parent}->{children}}, $e->{name};
-	} else {
-	    push @roots, $e->{name};
-	}
+        my $parent;
+        if (($parent = $e->{parent}) && defined $snapshots->{$parent}) {
+            push @{ $snapshots->{$parent}->{children} }, $e->{name};
+        } else {
+            push @roots, $e->{name};
+        }
     }
 
     # sort the elements by snaptime - with "current" (no snaptime) highest
     my $snaptimesort = sub {
-	return +1 if !defined $snapshots->{$a}->{snaptime};
-	return -1 if !defined $snapshots->{$b}->{snaptime};
-	return $snapshots->{$a}->{snaptime} <=> $snapshots->{$b}->{snaptime};
+        return +1 if !defined $snapshots->{$a}->{snaptime};
+        return -1 if !defined $snapshots->{$b}->{snaptime};
+        return $snapshots->{$a}->{snaptime} <=> $snapshots->{$b}->{snaptime};
     };
 
     # recursion function for displaying the tree
     my $snapshottree_weak;
     $snapshottree_weak = sub {
-	my ($prefix, $root, $snapshots) = @_;
-	my $e = $snapshots->{$root};
+        my ($prefix, $root, $snapshots) = @_;
+        my $e = $snapshots->{$root};
 
-	my $description = $e->{description} || 'no-description';
-	($description) = $description =~ m/(.*)$/m;
+        my $description = $e->{description} || 'no-description';
+        ($description) = $description =~ m/(.*)$/m;
 
-	my $timestring = "";
-	if (defined $e->{snaptime}) {
-	    $timestring = strftime("%F %H:%M:%S", localtime($e->{snaptime}));
-	}
+        my $timestring = "";
+        if (defined $e->{snaptime}) {
+            $timestring = strftime("%F %H:%M:%S", localtime($e->{snaptime}));
+        }
 
-	my $len = 30 - length($prefix); # for aligning the description
-	$len = 0 if $len < 0;
-	printf("%s %-${len}s %-23s %s\n", $prefix, $root, $timestring, $description);
+        my $len = 30 - length($prefix); # for aligning the description
+        $len = 0 if $len < 0;
+        printf("%s %-${len}s %-23s %s\n", $prefix, $root, $timestring, $description);
 
-	if ($e->{children}) {
-	    $prefix = " $prefix";
-	    foreach my $child (sort $snaptimesort @{$e->{children}}) {
-		$snapshottree_weak->($prefix, $child, $snapshots);
-	    }
-	}
+        if ($e->{children}) {
+            $prefix = " $prefix";
+            foreach my $child (sort $snaptimesort @{ $e->{children} }) {
+                $snapshottree_weak->($prefix, $child, $snapshots);
+            }
+        }
     };
     my $snapshottree = $snapshottree_weak;
     weaken($snapshottree_weak);
 
     foreach my $root (sort $snaptimesort @roots) {
-	$snapshottree->('`->', $root, $snapshots);
+        $snapshottree->('`->', $root, $snapshots);
     }
 }
 
 sub format_pending {
     my ($data) = @_;
-    foreach my $item (sort { $a->{key} cmp $b->{key}} @$data) {
-	my $k = $item->{key};
-	next if $k eq 'digest';
-	my $v = $item->{value};
-	my $p = $item->{pending};
-	if ($k eq 'description') {
-	    $v = PVE::Tools::encode_text($v) if defined($v);
-	    $p = PVE::Tools::encode_text($p) if defined($p);
-	}
-	if (defined($v)) {
-	    if ($item->{delete}) {
-		print "del $k: $v\n";
-	    } elsif (defined($p)) {
-		print "cur $k: $v\n";
-		print "new $k: $p\n";
-	    } else {
-		print "cur $k: $v\n";
-	    }
-	} elsif (defined($p)) {
-	    print "new $k: $p\n";
-	}
+    foreach my $item (sort { $a->{key} cmp $b->{key} } @$data) {
+        my $k = $item->{key};
+        next if $k eq 'digest';
+        my $v = $item->{value};
+        my $p = $item->{pending};
+        if ($k eq 'description') {
+            $v = PVE::Tools::encode_text($v) if defined($v);
+            $p = PVE::Tools::encode_text($p) if defined($p);
+        }
+        if (defined($v)) {
+            if ($item->{delete}) {
+                print "del $k: $v\n";
+            } elsif (defined($p)) {
+                print "cur $k: $v\n";
+                print "new $k: $p\n";
+            } else {
+                print "cur $k: $v\n";
+            }
+        } elsif (defined($p)) {
+            print "new $k: $p\n";
+        }
     }
 }
 
@@ -230,32 +229,34 @@ sub config_with_pending_array {
 
     my $res = [];
     foreach my $opt (keys %$conf) {
-	next if ref($conf->{$opt}); # e.g., "raw" lxc.* keys are added as array ref
+        next if ref($conf->{$opt}); # e.g., "raw" lxc.* keys are added as array ref
 
-	my $item = {
-	    key => $opt,
-	    value => $conf->{$opt},
-	};
-	$item->{pending} = delete $pending->{$opt} if defined($pending->{$opt});
-	my $delete = delete $pending_delete_hash->{$opt};
-	$item->{delete} = $delete->{force} ? 2 : 1 if defined($delete);
+        my $item = {
+            key => $opt,
+            value => $conf->{$opt},
+        };
+        $item->{pending} = delete $pending->{$opt} if defined($pending->{$opt});
+        my $delete = delete $pending_delete_hash->{$opt};
+        $item->{delete} = $delete->{force} ? 2 : 1 if defined($delete);
 
-	push @$res, $item;
+        push @$res, $item;
     }
 
     foreach my $opt (keys %$pending) {
-	next if $opt eq 'delete';
-	push @$res, {
-	    key => $opt,
-	    pending => $pending->{$opt},
-	};
+        next if $opt eq 'delete';
+        push @$res,
+            {
+                key => $opt,
+                pending => $pending->{$opt},
+            };
     }
 
     while (my ($opt, $force) = each %$pending_delete_hash) {
-	push @$res, {
-	    key => $opt,
-	    delete => $force ? 2 : 1,
-	};
+        push @$res,
+            {
+                key => $opt,
+                delete => $force ? 2 : 1,
+            };
     }
 
     return $res;
@@ -277,28 +278,30 @@ sub get_allowed_tags {
     my $allowed_tags = {};
     my $privileged_tags = {};
     if (my $tags = $datacenter_config->{'registered-tags'}) {
-	$privileged_tags->{$_} = 1 for $tags->@*;
+        $privileged_tags->{$_} = 1 for $tags->@*;
     }
     my $user_tag_privs = $datacenter_config->{'user-tag-access'} // {};
     my $user_allow = $user_tag_privs->{'user-allow'} // 'free';
     my $freeform = $user_allow eq 'free';
 
     if ($user_allow ne 'none' || $privileged_user) {
-	$allowed_tags->{$_} = 1 for ($user_tag_privs->{'user-allow-list'} // [])->@*;
+        $allowed_tags->{$_} = 1 for ($user_tag_privs->{'user-allow-list'} // [])->@*;
     }
 
     if ($user_allow eq 'free' || $user_allow eq 'existing' || $privileged_user) {
-	my $props = PVE::Cluster::get_guest_config_properties(['tags']);
-	for my $vmid (keys $props->%*) {
-	    next if !$privileged_user && !$rpcenv->check_vm_perm($user, $vmid, undef, ['VM.Audit'], 0, 1);
-	    $allowed_tags->{$_} = 1 for split_list($props->{$vmid}->{tags});
-	}
+        my $props = PVE::Cluster::get_guest_config_properties(['tags']);
+        for my $vmid (keys $props->%*) {
+            next
+                if !$privileged_user
+                && !$rpcenv->check_vm_perm($user, $vmid, undef, ['VM.Audit'], 0, 1);
+            $allowed_tags->{$_} = 1 for split_list($props->{$vmid}->{tags});
+        }
     }
 
     if ($privileged_user) {
-	$allowed_tags->{$_} = 1 for keys $privileged_tags->%*;
+        $allowed_tags->{$_} = 1 for keys $privileged_tags->%*;
     } else {
-	delete $allowed_tags->{$_} for keys $privileged_tags->%*;
+        delete $allowed_tags->{$_} for keys $privileged_tags->%*;
     }
 
     return wantarray ? ($allowed_tags, $privileged_tags, $freeform) : $allowed_tags;
@@ -317,18 +320,19 @@ sub assert_tag_permissions {
 
     my ($allowed_tags, $privileged_tags, $freeform);
     my $check_single_tag = sub {
-	my ($tag) = @_;
-	return if $privileged_user;
+        my ($tag) = @_;
+        return if $privileged_user;
 
-	if (!defined($allowed_tags // $privileged_tags // $freeform)) { # cache
-	    ($allowed_tags, $privileged_tags, $freeform) = get_allowed_tags($rpcenv, $authuser, $privileged_user);
-	}
+        if (!defined($allowed_tags // $privileged_tags // $freeform)) { # cache
+            ($allowed_tags, $privileged_tags, $freeform) =
+                get_allowed_tags($rpcenv, $authuser, $privileged_user);
+        }
 
-	if ((!$allowed_tags->{$tag} && !$freeform) || $privileged_tags->{$tag}) {
-	    raise_perm_exc("/, Sys.Modify for modifying tag '$tag'");
-	}
+        if ((!$allowed_tags->{$tag} && !$freeform) || $privileged_tags->{$tag}) {
+            raise_perm_exc("/, Sys.Modify for modifying tag '$tag'");
+        }
 
-	return;
+        return;
     };
 
     my ($old_tags, $new_tags, $all_tags) = ({}, {}, {});
@@ -337,16 +341,16 @@ sub assert_tag_permissions {
     $all_tags->{$_} = $new_tags->{$_} += 1 for split_list($tagopt_new // '');
 
     for my $tag (keys $all_tags->%*) {
-	next if ($new_tags->{$tag} // 0) == ($old_tags->{$tag} // 0);
-	$check_single_tag->($tag);
+        next if ($new_tags->{$tag} // 0) == ($old_tags->{$tag} // 0);
+        $check_single_tag->($tag);
     }
 }
 
 sub get_unique_tags {
     my ($tags, $no_join_result) = @_;
 
-    $tags = [ split_list($tags // '') ] if ref($tags) ne 'ARRAY';
-    return !$no_join_result ? '': [] if !scalar($tags->@*);
+    $tags = [split_list($tags // '')] if ref($tags) ne 'ARRAY';
+    return !$no_join_result ? '' : [] if !scalar($tags->@*);
 
     my $datacenter_config = PVE::Cluster::cfs_read_file('datacenter.cfg');
     my $tag_style_config = $datacenter_config->{'tag-style'} // {};
@@ -355,19 +359,19 @@ sub get_unique_tags {
     my $seen_tags = {};
     my $res = [];
     if (!defined($tag_style_config->{ordering}) || $tag_style_config->{ordering} ne 'config') {
-	for my $tag ( sort { $case_sensitive ? $a cmp $b : lc($a) cmp lc($b) } $tags->@*) {
-	    $tag = lc($tag) if !$case_sensitive;
-	    next if $seen_tags->{$tag};
-	    $seen_tags->{$tag} = 1;
-	    push @$res, $tag;
-	}
+        for my $tag (sort { $case_sensitive ? $a cmp $b : lc($a) cmp lc($b) } $tags->@*) {
+            $tag = lc($tag) if !$case_sensitive;
+            next if $seen_tags->{$tag};
+            $seen_tags->{$tag} = 1;
+            push @$res, $tag;
+        }
     } else {
-	for my $tag ($tags->@*) {
-	    $tag = lc($tag) if !$case_sensitive;
-	    next if $seen_tags->{$tag};
-	    $seen_tags->{$tag} = 1;
-	    push @$res, $tag;
-	}
+        for my $tag ($tags->@*) {
+            $tag = lc($tag) if !$case_sensitive;
+            next if $seen_tags->{$tag};
+            $seen_tags->{$tag} = 1;
+            push @$res, $tag;
+        }
     }
 
     return !$no_join_result ? join(';', $res->@*) : $res;
@@ -379,13 +383,13 @@ my sub get_tags_from_trunk {
     my $res = {};
     my @trunks_array = split /;/, $trunks;
     for my $trunk (@trunks_array) {
-	my ($tag, $tag_end) = split /-/, $trunk;
-	if($tag_end && $tag_end > $tag) {
-	    my @tags = ($tag..$tag_end);
-	    $res->{$_} = 1 for @tags;
-	} else {
-	    $res->{$tag} = 1;
-	}
+        my ($tag, $tag_end) = split /-/, $trunk;
+        if ($tag_end && $tag_end > $tag) {
+            my @tags = ($tag .. $tag_end);
+            $res->{$_} = 1 for @tags;
+        } else {
+            $res->{$tag} = 1;
+        }
     }
     return $res;
 }
@@ -396,24 +400,24 @@ sub check_vnet_access {
     my $zone = 'localnetwork';
 
     if ($have_sdn) {
-	my $vnet_cfg = PVE::Network::SDN::Vnets::config();
-	if (defined(my $vnet = PVE::Network::SDN::Vnets::sdn_vnets_config($vnet_cfg, $vnet, 1))) {
-	    $zone = $vnet->{zone};
-	}
+        my $vnet_cfg = PVE::Network::SDN::Vnets::config();
+        if (defined(my $vnet = PVE::Network::SDN::Vnets::sdn_vnets_config($vnet_cfg, $vnet, 1))) {
+            $zone = $vnet->{zone};
+        }
     }
 
     # if a tag is defined, test if user have a specific access to the vlan (or propagated from full bridge acl)
     $rpcenv->check($authuser, "/sdn/zones/$zone/$vnet/$tag", ['SDN.Use']) if $tag;
     # check each vlan access from trunk
     if ($trunks) {
-	my $tags = get_tags_from_trunk($trunks);
-	for my $tag (sort keys %$tags) {
-	    $rpcenv->check($authuser, "/sdn/zones/$zone/$vnet/$tag", ['SDN.Use']);
-	}
+        my $tags = get_tags_from_trunk($trunks);
+        for my $tag (sort keys %$tags) {
+            $rpcenv->check($authuser, "/sdn/zones/$zone/$vnet/$tag", ['SDN.Use']);
+        }
     }
     # if no tag, test if user have access to full bridge.
     $rpcenv->check($authuser, "/sdn/zones/$zone/$vnet", ['SDN.Use'])
-	if !($tag || $trunks);
+        if !($tag || $trunks);
 }
 
 sub abort_guest_tasks {
@@ -421,31 +425,31 @@ sub abort_guest_tasks {
 
     my $authuser = $rpcenv->get_user();
     my $node = PVE::INotify::nodename();
-    my $can_abort_all = $rpcenv->check($authuser, "/nodes/$node", [ 'Sys.Modify' ], 1);
+    my $can_abort_all = $rpcenv->check($authuser, "/nodes/$node", ['Sys.Modify'], 1);
 
     my $active_tasks = PVE::INotify::read_file('active');
     my $aborted_tasks = [];
     for my $task (@$active_tasks) {
-	next if $task->{saved} || $task->{type} ne $type || $task->{id} ne $vmid; # filter
+        next if $task->{saved} || $task->{type} ne $type || $task->{id} ne $vmid; # filter
 
-	my $can_abort_task = $can_abort_all;
-	if (!$can_abort_task) {
-	    # tasks started by a token can be aborted by the token or token owner,
-	    # tasks started by a user can be aborted by the user
-	    if (PVE::AccessControl::pve_verify_tokenid($task->{user}, 1)) {
-		my $full_tokenid = $task->{user};
-		my ($task_username, undef) = PVE::AccessControl::split_tokenid($full_tokenid);
-		$can_abort_task = $authuser eq $task_username || $authuser eq $full_tokenid;
-	    } else {
-		$can_abort_task = $authuser eq $task->{user};
-	    }
-	}
+        my $can_abort_task = $can_abort_all;
+        if (!$can_abort_task) {
+            # tasks started by a token can be aborted by the token or token owner,
+            # tasks started by a user can be aborted by the user
+            if (PVE::AccessControl::pve_verify_tokenid($task->{user}, 1)) {
+                my $full_tokenid = $task->{user};
+                my ($task_username, undef) = PVE::AccessControl::split_tokenid($full_tokenid);
+                $can_abort_task = $authuser eq $task_username || $authuser eq $full_tokenid;
+            } else {
+                $can_abort_task = $authuser eq $task->{user};
+            }
+        }
 
-	if ($can_abort_task) {
-	   # passing `1` for parameter $killit aborts the task
-	   PVE::RPCEnvironment->check_worker($task->{upid}, 1);
-	   push @$aborted_tasks, $task->{upid};
-	}
+        if ($can_abort_task) {
+            # passing `1` for parameter $killit aborts the task
+            PVE::RPCEnvironment->check_worker($task->{upid}, 1);
+            push @$aborted_tasks, $task->{upid};
+        }
     }
     return $aborted_tasks;
 }
