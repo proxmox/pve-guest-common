@@ -266,19 +266,6 @@ my $confdesc = {
         enum => ['auto', 'legacy-sendmail', 'notification-system'],
         default => 'auto',
     },
-    'notification-policy' => {
-        type => 'string',
-        description => "Deprecated: Do not use",
-        optional => 1,
-        enum => ['always', 'failure', 'never'],
-        default => 'always',
-    },
-    'notification-target' => {
-        type => 'string',
-        format => 'pve-configid',
-        description => "Deprecated: Do not use",
-        optional => 1,
-    },
     tmpdir => {
         type => 'string',
         description => "Store temporary files to specified directory.",
