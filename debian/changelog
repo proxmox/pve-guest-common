@@ -1,3 +1,15 @@
+libpve-guest-common-perl (6.0.1) trixie; urgency=medium
+
+  * backup job: remove 'notification-policy' and 'notification-target'
+    options.
+
+  * replication: follow dedicated datacenter 'replication' options but fall
+    back to migration ones.
+
+  * replication: add used network for replication traffic to the log output.
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 17 Jul 2025 21:49:22 +0200
+
 libpve-guest-common-perl (6.0.0) trixie; urgency=medium
 
   * re-build for Debian 13 Trixie based Proxmox VE 9 release.
