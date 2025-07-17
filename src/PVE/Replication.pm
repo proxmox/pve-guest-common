@@ -279,13 +279,13 @@ sub replicate {
 
     my $dc_conf = PVE::Cluster::cfs_read_file('datacenter.cfg');
 
-    my $migration_network;
+    my $replication_network;
     my $migration_type = 'secure';
     if (my $rc = $dc_conf->{replication}) {
-        $migration_network = $rc->{network};
+        $replication_network = $rc->{network};
         $migration_type = $rc->{type} if defined($rc->{type});
     } elsif (my $mc = $dc_conf->{migration}) {
-        $migration_network = $mc->{network};
+        $replication_network = $mc->{network};
         $migration_type = $mc->{type} if defined($mc->{type});
     }
 
@@ -353,7 +353,7 @@ sub replicate {
         return undef;
     }
 
-    my $ssh_info = PVE::SSHInfo::get_ssh_info($jobcfg->{target}, $migration_network);
+    my $ssh_info = PVE::SSHInfo::get_ssh_info($jobcfg->{target}, $replication_network);
 
     my ($base_snapshots, $local_snapshots, $last_sync_snapname) = find_common_replication_snapshot(
         $ssh_info,
@@ -419,7 +419,7 @@ sub replicate {
         my $rate = $jobcfg->{rate};
         my $insecure = $migration_type eq 'insecure';
 
-        my $extra_log = $migration_network ? " over ${migration_network}" : '';
+        my $extra_log = $replication_network ? " over ${replication_network}" : '';
         $logfunc->("using $migration_type transmission${extra_log}, rate limit: "
             . ($rate ? "$rate MByte/s" : "none"));
 
