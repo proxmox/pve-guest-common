@@ -339,14 +339,6 @@ my $confdesc = {
         minimum => 0,
         default => 10, # 10 minutes
     },
-    # FIXME remove with PVE 8.0 or PVE 9.0
-    maxfiles => {
-        type => 'integer',
-        description => "Deprecated: use 'prune-backups' instead. "
-            . "Maximal number of backup files per guest system.",
-        optional => 1,
-        minimum => 1,
-    },
     'prune-backups' => get_standard_option(
         'prune-backups',
         {
