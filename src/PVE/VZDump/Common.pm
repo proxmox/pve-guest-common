@@ -261,9 +261,10 @@ my $confdesc = {
             . " specified address(es) via the 'sendmail' command. If set to 'notification-system',"
             . " a notification will be sent via PVE's notification system, and the mailto and"
             . " mailnotification will be ignored. If set to 'auto' (default setting), an email will"
-            . " be sent if mailto is set, and the notification system will be used if not.",
+            . " be sent if mailto is set, and the notification system will be used if not."
+            . " If set to 'none', no notification will be sent.",
         optional => 1,
-        enum => ['auto', 'legacy-sendmail', 'notification-system'],
+        enum => ['auto', 'legacy-sendmail', 'notification-system', 'none'],
         default => 'auto',
     },
     tmpdir => {
