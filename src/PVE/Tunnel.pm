@@ -74,8 +74,10 @@ sub read_tunnel {
     };
     my $err = $@;
 
-    while (my $line = <$reader_stderr>) { # $reader_stderr is set up as non-blocking
-        $tunnel->{log}->('warn', $line);
+    if (defined($reader_stderr)) { # Only used by the ssh tunnel, but not by the websocket tunnel.
+        while (my $line = <$reader_stderr>) { # $reader_stderr is set up as non-blocking
+            $tunnel->{log}->('warn', $line);
+        }
     }
 
     die "reading from tunnel failed: $err\n" if $err;
