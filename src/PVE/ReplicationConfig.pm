@@ -2,7 +2,6 @@ package PVE::ReplicationConfig;
 
 use strict;
 use warnings;
-use Data::Dumper;
 
 use PVE::Tools;
 use PVE::JSONSchema qw(get_standard_option);
