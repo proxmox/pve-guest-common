@@ -1,3 +1,10 @@
+libpve-guest-common-perl (6.0.5) trixie; urgency=medium
+
+  * tunnel: treat reader_stderr as optional parameter in read_tunnel, fixing a
+    cosmetic log spam issue
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 23 Jul 2026 13:59:59 +0200
+
 libpve-guest-common-perl (6.0.4) trixie; urgency=medium
 
   * tunnel: redirect stderr to log function to capture all output
