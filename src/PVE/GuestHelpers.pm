@@ -115,13 +115,23 @@ sub check_hookscript {
 }
 
 sub exec_hookscript {
-    my ($conf, $vmid, $phase, $stop_on_error) = @_;
+    my ($conf, $vmid, $phase, $stop_on_error, $params) = @_;
 
     return if !$conf->{hookscript};
+
+    $params = {} if !defined($params);
 
     eval {
         my $hookscript = check_hookscript($conf->{hookscript});
         die $@ if $@;
+
+        # copy ENV, so we keep the inherited one before adding to it
+        local %ENV = (%ENV);
+
+        for my $key (keys $params->%*) {
+            my $new_key = "PVE_HOOK_" . uc($key);
+            $ENV{$new_key} = $params->{$key};
+        }
 
         PVE::Tools::run_command([$hookscript, $vmid, $phase]);
     };
