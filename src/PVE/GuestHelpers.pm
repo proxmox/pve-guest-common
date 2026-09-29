@@ -105,6 +105,9 @@ sub check_hookscript {
     die "'$volid' is not in the snippets directory\n"
         if $type ne 'snippets';
 
+    my ($storeid) = PVE::Storage::parse_volume_id($volid);
+    PVE::Storage::activate_storage($storecfg, $storeid);
+
     die "script '$volid' does not exist\n"
         if !-f $path;
 
