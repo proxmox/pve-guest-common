@@ -6,6 +6,7 @@ Build-Depends: debhelper-compat (= 13),
                libpve-cluster-perl,
                libpve-common-perl (>= 9.2.6),
                libpve-storage-perl (>= 8.3.4),
+               libtest-mockmodule-perl,
                pve-cluster,
 Standards-Version: 4.6.2
 Homepage: https://www.proxmox.com
