@@ -202,6 +202,19 @@ my sub assert_id_in_next_id_range($next_id_opts, $id) {
         if defined($upper) && $id >= $upper;
 }
 
+# Dies if the next-id datacenter option enforces its range or uniqueness
+# and a new guest must not use $id.
+sub assert_id_satisfies_next_id_settings($id) {
+    my $next_id_opts = cfs_read_file('datacenter.cfg')->{'next-id'} // {};
+    return if !$next_id_opts->{enforce};
+
+    assert_id_in_next_id_range($next_id_opts, $id);
+
+    if ($next_id_opts->{unique}) {
+        die "guest ID $id was used before\n" if get_next_unused_id($id) != $id;
+    }
+}
+
 # Records $id as used. If the next-id datacenter option enforces its
 # range or uniqueness, IDs a new guest must not use are rejected.
 # IDs of currently existing guests are never rejected.
