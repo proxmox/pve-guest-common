@@ -4,10 +4,15 @@ use v5.36;
 
 use lib qw(..);
 
+use List::Util qw(min sum0);
 use Test::MockModule;
 use Test::More;
 
 my $FILE = '/etc/pve/virtual-guest/used-guest-ids';
+
+# must match the thresholds in PVE::GuestID
+my $SIZE_WARN = 512 * 1024;
+my $SIZE_MAX = 768 * 1024;
 
 my ($parse, $write);
 my $raw; # contents of the mocked used-guest-ids file
@@ -42,6 +47,38 @@ require PVE::GuestID;
 
 sub range_to_vmlist(@ids) {
     return { ids => { map { $_ => { node => 'localhost', type => 'qemu' } } @ids } };
+}
+
+# single IDs from 100 upwards, with the gaps between them cycling through @gaps
+sub single_ids($count, @gaps) {
+    my @lines;
+    my $id = 100;
+    for my $i (0 .. $count - 1) {
+        push @lines, "$id\n";
+        $id += 1 + $gaps[$i % scalar(@gaps)];
+    }
+    return join('', @lines);
+}
+
+sub gap_sizes($ranges) {
+    my @gap_sizes;
+    for my $i (1 .. $#$ranges) {
+        push @gap_sizes, $ranges->[$i]->[0] - $ranges->[$i - 1]->[1] - 1;
+    }
+    return @gap_sizes;
+}
+
+# whether every range in $inner lies within a range in $outer, both sorted
+sub covers($outer, $inner) {
+    my $i = 0;
+    for my $range ($inner->@*) {
+        while ($i < scalar(@$outer) && $outer->[$i]->[1] < $range->[0]) {
+            $i++;
+        }
+        return 0 if $i >= scalar(@$outer);
+        return 0 if $outer->[$i]->[0] > $range->[0] || $outer->[$i]->[1] < $range->[1];
+    }
+    return 1;
 }
 
 subtest 'parse' => sub {
@@ -107,6 +144,65 @@ subtest 'write' => sub {
         my ($name, $input, $expected) = $test->@*;
         is($write->($FILE, $parse->($FILE, $input)), $expected, $name);
     }
+};
+
+subtest 'write size limit' => sub {
+    my sub write_with_warnings($input) {
+        my @warnings;
+        local $SIG{__WARN__} = sub { push @warnings, $_[0] };
+        my $output = $write->($FILE, $parse->($FILE, $input));
+        return ($output, \@warnings);
+    }
+
+    my $small = single_ids(50_000, 1);
+    ok(length($small) < $SIZE_WARN, 'small list is below the warning threshold');
+    my ($output, $warnings) = write_with_warnings($small);
+    is($output, $small, 'below the warning threshold: written unchanged');
+    is_deeply($warnings, [], 'below the warning threshold: no warning');
+
+    my $medium = single_ids(90_000, 1);
+    ok(length($medium) > $SIZE_WARN && length($medium) < $SIZE_MAX,
+        'medium list is in between');
+    ($output, $warnings) = write_with_warnings($medium);
+    is($output, $medium, 'above the warning threshold: written unchanged');
+    is(scalar($warnings->@*), 1, 'above the warning threshold: one warning');
+    like(
+        $warnings->[0],
+        qr/^\Q$FILE\E is \d+ KiB, .* closed beyond 768 KiB\n\z/,
+        'above the warning threshold: size is warned about',
+    );
+
+    # above the hard limit, equal gaps
+    my $large = single_ids(150_000, 1);
+    ok(length($large) > $SIZE_MAX, 'large list is above the limit');
+    my $input = $parse->($FILE, $large);
+    ($output, $warnings) = write_with_warnings($large);
+    my $closed = $parse->($FILE, $output);
+    ok(length($output) <= $SIZE_MAX, 'above the limit: output fits');
+    ok(covers($closed, $input), 'above the limit: every used ID is still recorded');
+    is(scalar($warnings->@*), 1, 'above the limit: one warning');
+    my ($count) =
+        ($warnings->[0] // '') =~ m/would exceed 768 KiB, recorded (\d+) unused guest IDs? /;
+    is(
+        $count,
+        sum0(gap_sizes($input)) - sum0(gap_sizes($closed)),
+        'above the limit: number of IDs marked as used is reported',
+    );
+
+    # above the hard limit, mixed gaps
+    my $mixed = single_ids(200_000, 1, 2, 5, 50);
+    $input = $parse->($FILE, $mixed);
+    ($output, $warnings) = write_with_warnings($mixed);
+    $closed = $parse->($FILE, $output);
+    my @remaining = gap_sizes($closed);
+    ok(length($output) <= $SIZE_MAX, 'mixed gaps: output fits');
+    ok(covers($closed, $input), 'mixed gaps: every used ID is still recorded');
+    is(min(@remaining), 5, 'mixed gaps: all gaps of 1 and 2 are closed first');
+    is(
+        scalar(grep { $_ == 50 } @remaining),
+        scalar(grep { $_ == 50 } gap_sizes($input)),
+        'mixed gaps: the largest gaps are kept',
+    );
 };
 
 subtest 'get_next_unused_id' => sub {
