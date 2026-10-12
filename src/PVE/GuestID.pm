@@ -192,25 +192,47 @@ my sub insert_id($ranges, $id) {
     return 1;
 }
 
+my sub assert_id_in_next_id_range($next_id_opts, $id) {
+    my $lower = $next_id_opts->{lower} // 100;
+    my $upper = $next_id_opts->{upper} // (1000 * 1000);
+
+    die "guest ID $id is below the lower boundary $lower of the next-id range\n"
+        if defined($lower) && $id < $lower;
+    die "guest ID $id is not below the upper boundary $upper of the next-id range\n"
+        if defined($upper) && $id >= $upper;
+}
+
+# Records $id as used. If the next-id datacenter option enforces its
+# range or uniqueness, IDs a new guest must not use are rejected.
+# IDs of currently existing guests are never rejected.
 sub register_used_id($id) {
-    cfs_lock_file(
+    my $next_id_opts = cfs_read_file('datacenter.cfg')->{'next-id'} // {};
+    my $enforce = $next_id_opts->{enforce} && PVE::Cluster::check_vmid_unused($id, 1);
+
+    assert_id_in_next_id_range($next_id_opts, $id) if $enforce;
+
+    my $recorded = cfs_lock_file(
         $FILENAME,
         10,
         sub {
             my $ranges = cfs_read_file($FILENAME);
 
-            return if !insert_id($ranges, $id);
+            return 0 if !insert_id($ranges, $id);
 
             cfs_write_file($FILENAME, $ranges);
+            return 1;
         },
     );
     if (my $err = $@) {
-        my $dc_conf = cfs_read_file('datacenter.cfg');
-
         my $emsg = "unable to record guest ID $id as used";
-        die "$emsg - $err" if $dc_conf->{'next-id'}->{unique};
+        die "$emsg - $err" if $next_id_opts->{unique};
         warn "$emsg - $err";
+
+        return;
     }
+
+    die "guest ID $id was used before\n"
+        if $enforce && $next_id_opts->{unique} && !$recorded;
 }
 
 cfs_register_file($FILENAME, \&parse_id_list, \&write_id_list);
