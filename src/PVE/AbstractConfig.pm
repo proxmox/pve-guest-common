@@ -10,6 +10,7 @@ use PVE::Storage;
 use PVE::Tools qw(lock_file lock_file_full);
 
 use PVE::GuestHelpers qw(typesafe_ne);
+use PVE::GuestID;
 use PVE::ReplicationConfig;
 use PVE::Replication;
 
@@ -260,6 +261,8 @@ sub create_and_lock_config {
         5,
         sub {
             PVE::Cluster::check_vmid_unused($vmid, $allow_existing);
+
+            PVE::GuestID::register_used_id($vmid);
 
             my $conf = eval { $class->load_config($vmid) } || {};
             $class->check_lock($conf);
