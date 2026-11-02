@@ -1,3 +1,19 @@
+libpve-guest-common-perl (6.0.6) trixie; urgency=medium
+
+  * fix #1964: replication: add the 'skip-freeze-fs' job option to replicate
+    without freezing the guest filesystems. The replication log notes when a
+    running guest is replicated without a freeze.
+
+  * remote migration: add the 'PVEAPIToken=' prefix when the API token lacks it,
+    as the initial API checks already do. Without it, the migration failed
+    midway with "server didn't upgrade: 401 Unauthorized".
+
+  * hookscripts: pass additional, phase-specific parameters to hookscripts as
+    environment variables prefixed with 'PVE_HOOK_'. The new 'post-pci-prepare'
+    phase for VMs uses this to name the prepared PCI device.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 03 Nov 2026 00:05:18 +0100
+
 libpve-guest-common-perl (6.0.5) trixie; urgency=medium
 
   * tunnel: treat reader_stderr as optional parameter in read_tunnel, fixing a
