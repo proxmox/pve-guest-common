@@ -12,6 +12,7 @@ use Storable qw(dclone);
 use URI::Escape;
 
 use PVE::APIClient::LWP;
+use PVE::Cmd qw(build_ssh_command);
 use PVE::Tools;
 
 my $finish_command_pipe = sub {
@@ -151,7 +152,9 @@ sub fork_ssh_tunnel {
         push @localtunnelinfo, '-L', $addr;
     }
 
-    my $full_cmd = [@$rem_ssh, '-o ExitOnForwardFailure=yes', @localtunnelinfo, @$cmd];
+    my $full_cmd = build_ssh_command(
+        [@$rem_ssh, '-o ExitOnForwardFailure=yes', @localtunnelinfo], $cmd,
+    );
 
     my $reader = IO::File->new();
     my $reader_stderr = IO::File->new();
@@ -381,8 +384,7 @@ sub finish_tunnel {
 
         # .. and just to be sure check on remote side
         if ($tunnel->{rem_ssh}) {
-            unshift @{$cmd}, @{ $tunnel->{rem_ssh} };
-            PVE::Tools::run_command($cmd);
+            PVE::Tools::run_command(build_ssh_command($tunnel->{rem_ssh}, $cmd));
         }
     }
 
