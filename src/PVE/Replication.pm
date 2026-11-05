@@ -133,12 +133,13 @@ sub remote_prepare_local_job {
     my $ssh_cmd = PVE::SSHInfo::ssh_info_to_command($ssh_info);
     my $cmd = ['pvesr', 'prepare-local-job', $jobid];
     push @$cmd, '--scan', join(',', @$storeid_list) if scalar(@$storeid_list);
-    push @$cmd, @$volumes if scalar(@$volumes);
 
     push @$cmd, '--last_sync', $last_sync;
     push @$cmd, '--parent_snapname', $parent_snapname
         if $parent_snapname;
     push @$cmd, '--force' if $force;
+    push @$cmd, '--';
+    push @$cmd, @$volumes if scalar(@$volumes);
 
     my $remote_snapshots;
 
@@ -169,7 +170,7 @@ sub remote_finalize_local_job {
     my ($ssh_info, $jobid, $vmid, $volumes, $last_sync, $logfunc) = @_;
 
     my $ssh_cmd = PVE::SSHInfo::ssh_info_to_command($ssh_info);
-    my $cmd = ['pvesr', 'finalize-local-job', $jobid, @$volumes, '--last_sync', $last_sync];
+    my $cmd = ['pvesr', 'finalize-local-job', $jobid, '--last_sync', $last_sync, '--', @$volumes];
 
     my $logger = sub {
         my $line = shift;
