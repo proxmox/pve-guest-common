@@ -1,3 +1,20 @@
+libpve-guest-common-perl (6.0.7) trixie; urgency=medium
+
+  * fix #7408: hookscripts: activate the storage of a hookscript before checking
+    for the script. With the script on a storage that was not mounted yet, for
+    example CIFS or NFS when starting a guest on boot, the guest failed to start
+    with "script ... does not exist".
+
+  * hookscripts: do not treat a script as failed if its last line on stderr is
+    exactly "got unknown phase '<phase>'" for the current phase. Scripts copied
+    from the former example hookscript would otherwise abort the start of VMs
+    with passed-through PCI devices on the 'post-pci-prepare' phase.
+
+  * replication, SSH migration tunnel: shell-quote remote command arguments to
+    preserve spaces and special characters.
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 05 Nov 2026 22:00:29 +0100
+
 libpve-guest-common-perl (6.0.6) trixie; urgency=medium
 
   * fix #1964: replication: add the 'skip-freeze-fs' job option to replicate
