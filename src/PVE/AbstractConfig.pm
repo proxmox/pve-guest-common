@@ -11,6 +11,7 @@ use PVE::Tools qw(lock_file lock_file_full);
 
 use PVE::GuestHelpers qw(typesafe_ne);
 use PVE::GuestID;
+use PVE::GuestIdentity;
 use PVE::ReplicationConfig;
 use PVE::Replication;
 
@@ -62,13 +63,71 @@ sub load_config {
     return $conf;
 }
 
+# Guest identity, see PVE::GuestIdentity
+
+# Whether writing a config keeps the stored guest identity, or assigns one if there is none,
+# see write_config. Only enable it for a guest type whose config format accepts the identity
+# members, as a strict parser would otherwise reject every written config.
+sub __identity_enabled {
+    my ($class) = @_;
+
+    return 0;
+}
+
+# Returns the guest identity contained in the parsed config $conf, for example of a backup, undef
+# if there is none.
+sub get_identity {
+    my ($class, $conf) = @_;
+
+    return PVE::GuestIdentity::parse_identity($conf->{meta});
+}
+
+# Returns undef if no config file exists for $vmid on this node. Otherwise returns a hash whose
+# 'identity' member is the identity stored in the top-level section of the file, or undef if it
+# has none, as for an empty file. Dies on other read errors, like a failed connection to pmxcfs.
+#
+# Reads the file directly and not the parsed config from the file cache, as a process only sees
+# the config writes of other processes after PVE::Cluster::cfs_update().
+sub __identity_read_stored {
+    my ($class, $vmid) = @_;
+
+    my $raw = PVE::Cluster::get_config($class->cfs_config_path($vmid));
+    return undef if !defined($raw);
+
+    return { identity => PVE::GuestIdentity::parse_identity_from_raw_config($raw) };
+}
+
 # Generate and write config file for this VM/CT
+#
+# With guest identities enabled for the class, the identity stored in the existing config file
+# gets set in $conf, whatever $conf contains, or a new one if none is stored. So a config write
+# never changes a stored identity.
+#
+# Reading the stored identity and writing the config are two steps. As for any other change of a
+# config, the caller therefore has to hold the guest config lock, or own the guest through a lock
+# in its config, like the one of create_and_lock_config.
 sub write_config {
     my ($class, $vmid, $conf) = @_;
 
     my $cfspath = $class->cfs_config_path($vmid);
 
+    if (!$class->__identity_enabled()) {
+        PVE::Cluster::cfs_write_file($cfspath, $conf);
+        return;
+    }
+
+    my $stored = $class->__identity_read_stored($vmid);
+    my $identity = $stored ? $stored->{identity} : undef;
+
+    # a stored uid without valid rtime can only come from a manual edit
+    if (!$identity || !defined($identity->{rtime})) {
+        $identity = PVE::GuestIdentity::new_identity($identity ? $identity->{uid} : undef);
+    }
+
+    $conf->{meta} = PVE::GuestIdentity::merge_identity($conf->{meta}, $identity);
     PVE::Cluster::cfs_write_file($cfspath, $conf);
+
+    return;
 }
 
 # Pending changes related

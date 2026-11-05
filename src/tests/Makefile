@@ -1,11 +1,14 @@
 
 all:
 
-.PHONY: check abstract-config config-reservation firewall-config guest-id guest-identity hookscript storage-tunnel
-check: abstract-config config-reservation firewall-config guest-id guest-identity hookscript storage-tunnel
+.PHONY: check abstract-config config-identity config-reservation firewall-config guest-id guest-identity hookscript storage-tunnel
+check: abstract-config config-identity config-reservation firewall-config guest-id guest-identity hookscript storage-tunnel
 
 abstract-config: abstract-config-tests.pl
 	perl -I.. ./abstract-config-tests.pl
+
+config-identity: config-identity-tests.pl
+	perl -I.. ./config-identity-tests.pl
 
 config-reservation: config-reservation-tests.pl
 	perl -I.. ./config-reservation-tests.pl
