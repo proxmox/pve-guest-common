@@ -124,6 +124,16 @@ sub exec_hookscript {
 
     $params = {} if !defined($params);
 
+    my $phase_unknown = 0;
+    my $errfunc = sub {
+        my ($line) = @_;
+
+        print STDERR "$line\n";
+        *STDERR->flush();
+
+        $phase_unknown = $line eq "got unknown phase '$phase'";
+    };
+
     eval {
         my $hookscript = check_hookscript($conf->{hookscript});
         die $@ if $@;
@@ -136,9 +146,13 @@ sub exec_hookscript {
             $ENV{$new_key} = $params->{$key};
         }
 
-        PVE::Tools::run_command([$hookscript, $vmid, $phase]);
+        PVE::Tools::run_command([$hookscript, $vmid, $phase], errfunc => $errfunc);
     };
     if (my $err = $@) {
+        # Copies of the former example hookscript die on phases they do not know, with exactly this
+        # message as their last output. That must not block guests whenever a new phase gets added.
+        return if $phase_unknown;
+
         my $errmsg = "hookscript error for $vmid on $phase: $err\n";
         die $errmsg if ($stop_on_error);
         warn $errmsg;
