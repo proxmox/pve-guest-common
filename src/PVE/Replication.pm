@@ -7,6 +7,7 @@ use JSON;
 use Time::HiRes qw(gettimeofday tv_interval);
 use POSIX qw(strftime);
 
+use PVE::Cmd qw(build_ssh_command);
 use PVE::INotify;
 use PVE::ProcFSTools;
 use PVE::Tools;
@@ -130,7 +131,7 @@ sub remote_prepare_local_job {
     ) = @_;
 
     my $ssh_cmd = PVE::SSHInfo::ssh_info_to_command($ssh_info);
-    my $cmd = [@$ssh_cmd, '--', 'pvesr', 'prepare-local-job', $jobid];
+    my $cmd = ['pvesr', 'prepare-local-job', $jobid];
     push @$cmd, '--scan', join(',', @$storeid_list) if scalar(@$storeid_list);
     push @$cmd, @$volumes if scalar(@$volumes);
 
@@ -152,7 +153,11 @@ sub remote_prepare_local_job {
         $logfunc->("(remote_prepare_local_job) $line");
     };
 
-    PVE::Tools::run_command($cmd, outfunc => $parser, errfunc => $logger);
+    PVE::Tools::run_command(
+        build_ssh_command($ssh_cmd, $cmd),
+        outfunc => $parser,
+        errfunc => $logger,
+    );
 
     die "prepare remote node failed - no result\n"
         if !defined($remote_snapshots);
@@ -164,16 +169,7 @@ sub remote_finalize_local_job {
     my ($ssh_info, $jobid, $vmid, $volumes, $last_sync, $logfunc) = @_;
 
     my $ssh_cmd = PVE::SSHInfo::ssh_info_to_command($ssh_info);
-    my $cmd = [
-        @$ssh_cmd,
-        '--',
-        'pvesr',
-        'finalize-local-job',
-        $jobid,
-        @$volumes,
-        '--last_sync',
-        $last_sync,
-    ];
+    my $cmd = ['pvesr', 'finalize-local-job', $jobid, @$volumes, '--last_sync', $last_sync];
 
     my $logger = sub {
         my $line = shift;
@@ -181,7 +177,11 @@ sub remote_finalize_local_job {
         $logfunc->("(remote_finalize_local_job) $line");
     };
 
-    PVE::Tools::run_command($cmd, outfunc => $logger, errfunc => $logger);
+    PVE::Tools::run_command(
+        build_ssh_command($ssh_cmd, $cmd),
+        outfunc => $logger,
+        errfunc => $logger,
+    );
 }
 
 # Finds all local snapshots and removes replication snapshots not matching $last_sync after checking
