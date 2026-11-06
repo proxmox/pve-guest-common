@@ -101,7 +101,7 @@ sub __identity_read_stored {
 #
 # With guest identities enabled for the class, the identity stored in the existing config file
 # gets set in $conf, whatever $conf contains, or a new one if none is stored. So a config write
-# never changes a stored identity.
+# never changes the uid of a guest, only PVE::GuestIdentity::adopt does.
 #
 # Reading the stored identity and writing the config are two steps. As for any other change of a
 # config, the caller therefore has to hold the guest config lock, or own the guest through a lock
@@ -126,6 +126,44 @@ sub write_config {
 
     $conf->{meta} = PVE::GuestIdentity::merge_identity($conf->{meta}, $identity);
     PVE::Cluster::cfs_write_file($cfspath, $conf);
+
+    return;
+}
+
+# Replaces the stored identity of the config of $vmid with $identity and removes its pending uid
+# in the same write. Only for PVE::GuestIdentity::adopt, which checks that no other guest has the
+# uid and whose caller holds the config lock.
+sub __identity_replace {
+    my ($class, $vmid, $identity) = @_;
+
+    die "guest identities are not enabled for this guest type\n" if !$class->__identity_enabled();
+
+    # the file cache only notices writes of other processes after an update
+    PVE::Cluster::cfs_update();
+    my $conf = $class->load_config($vmid);
+
+    $conf->{meta} = PVE::GuestIdentity::merge_identity($conf->{meta}, $identity);
+    PVE::GuestIdentity::set_pending_uid($conf, undef);
+    PVE::Cluster::cfs_write_file($class->cfs_config_path($vmid), $conf);
+
+    return;
+}
+
+# Writes $uid as pending uid into the config of $vmid, or removes the pending uid if $uid is undef,
+# keeping everything else, see PVE::GuestIdentity::set_pending_uid. Does not write if the config
+# already has it that way. The caller must hold the config lock.
+sub record_pending_uid {
+    my ($class, $vmid, $uid) = @_;
+
+    # the file cache only notices writes of other processes after an update
+    PVE::Cluster::cfs_update();
+    my $conf = $class->load_config($vmid);
+    return if ($uid // '') eq (PVE::GuestIdentity::get_pending_uid($conf) // '');
+
+    PVE::GuestIdentity::set_pending_uid($conf, $uid);
+    # the parsed config lacks the stored identity if the parser could not read the 'meta'
+    # property, but write_config puts it back
+    $class->write_config($vmid, $conf);
 
     return;
 }
@@ -294,14 +332,19 @@ sub load_current_config {
 
     # take pending changes in
     if (!$current) {
+        # a guest type with identities never applies a pending change of 'meta', which can hold
+        # the pending uid, see PVE::GuestIdentity::set_pending_uid
+        my $skip = $class->__identity_enabled() ? { meta => 1 } : {};
+
         foreach my $opt (keys %{ $conf->{pending} }) {
-            next if $opt eq 'delete';
+            next if $opt eq 'delete' || $skip->{$opt};
             my $value = $conf->{pending}->{$opt};
             next if ref($value); # just to be sure
             $conf->{$opt} = $value;
         }
         my $pending_delete_hash = $class->parse_pending_delete($conf->{pending}->{delete});
         foreach my $opt (keys %$pending_delete_hash) {
+            next if $skip->{$opt};
             delete $conf->{$opt} if $conf->{$opt};
         }
     }
@@ -312,6 +355,30 @@ sub load_current_config {
     return $conf;
 }
 
+# 'meta' is read-only, so a queued change of it can only come from a manual edit, an older version,
+# or an unfinished restore. Such a restore keeps the uid of its backup as pending uid, see
+# PVE::GuestIdentity::set_pending_uid. Drops such a change from the parsed config $conf instead of
+# applying it.
+sub drop_pending_meta {
+    my ($class, $conf) = @_;
+
+    my $pending_delete_hash = $class->parse_pending_delete($conf->{pending}->{delete});
+    return if !defined($conf->{pending}->{meta}) && !$pending_delete_hash->{meta};
+
+    my $uid = PVE::GuestIdentity::get_pending_uid($conf);
+    if (defined($uid)) {
+        warn "guest identity: dropping pending uid $uid of an unfinished restore - a retry now"
+            . " needs 'allow-identity-mismatch'\n";
+    } else {
+        warn "ignoring pending change of read-only option 'meta'\n";
+    }
+
+    delete $conf->{pending}->{meta};
+    $class->remove_from_pending_delete($conf, 'meta');
+
+    return;
+}
+
 # Reserves $vmid for an operation by writing its config with the lock $lock, 'create' by default.
 # An existing config is only allowed with $allow_existing, and required if that is 'require'. It
 # must not be locked. With identities enabled, one that fails to load is refused as well.
@@ -320,6 +387,7 @@ sub load_current_config {
 # as the write can assign an identity to a config without one. Adopting a uid later needs it.
 #   existed - whether a config existed before
 #   previous - the guest identity of that config, undef if it had none or did not exist
+#   previous-pending-uid - the pending uid of that config, see PVE::GuestIdentity::set_pending_uid
 #   assigned - the guest identity of the config after the write, undef with identities
 #     disabled
 sub create_and_lock_config {
@@ -341,6 +409,7 @@ sub create_and_lock_config {
             die $load_err if !defined($conf) && ($allow_existing // '') eq 'require';
             my $existed = defined($conf);
             my $previous = $existed ? $class->get_identity($conf) : undef;
+            my $pending = $existed ? PVE::GuestIdentity::get_pending_uid($conf) : undef;
 
             $conf //= {};
             $class->check_lock($conf);
@@ -363,6 +432,7 @@ sub create_and_lock_config {
             return {
                 existed => $existed ? 1 : 0,
                 previous => $previous,
+                'previous-pending-uid' => $pending,
                 assigned => $class->__identity_enabled() ? $class->get_identity($conf) : undef,
             };
         },

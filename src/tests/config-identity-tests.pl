@@ -72,16 +72,22 @@ my $seen_versions = {};
 my $cache = {};
 
 our $get_config_error;
+our $lock_domain_error;
+our $domain_locked = 0;
+our $on_lookup;
 
 my $reads = 0;
 my $writes = 0;
+my $domain_writes = 0;
 
 sub parse_test_config($raw) {
     my $conf = { snapshots => {} };
     my $section = $conf;
     for my $line (split(/\n/, $raw)) {
         next if $line =~ m/^\s*$/;
-        if ($line =~ m/^\[([^\]]+)\]$/) {
+        if ($line =~ m/^\[PENDING\]$/) {
+            $section = $conf->{pending} = {};
+        } elsif ($line =~ m/^\[([^\]]+)\]$/) {
             $section = $conf->{snapshots}->{$1} = {};
         } elsif ($line =~ m/^([a-z][a-z0-9_\-]*):\s*(.*?)\s*$/) {
             $section->{$1} = $2;
@@ -101,6 +107,8 @@ sub write_test_config($conf) {
     };
 
     my $raw = $print_section->($conf);
+    $raw .= "\n[PENDING]\n" . $print_section->($conf->{pending})
+        if scalar(keys(($conf->{pending} // {})->%*));
     for my $snapname (sort keys(($conf->{snapshots} // {})->%*)) {
         $raw .= "\n[$snapname]\n" . $print_section->($conf->{snapshots}->{$snapname});
     }
@@ -132,6 +140,7 @@ $cluster_module->redefine(
     cfs_write_file => sub {
         my ($path, $conf) = @_;
         $writes++;
+        $domain_writes++ if $domain_locked;
         $files->{$path} = write_test_config($conf);
         $versions->{$path} = ++$version_counter;
         $cache->{$path}->{version} = undef if $cache->{$path};
@@ -141,6 +150,39 @@ $cluster_module->redefine(
         return 1 if !grep { defined($files->{$_}) && vmid_of_path($_) == $vmid } keys %$files;
         return undef if $noerr;
         die "guest $vmid already exists\n";
+    },
+    get_guest_config_properties => sub {
+        my ($properties, $vmid) = @_;
+        die "test error: unexpected arguments\n" if defined($vmid) || "@$properties" ne 'meta';
+
+        my $res = {};
+        for my $path (grep { defined($files->{$_}) } keys %$files) {
+            for my $line (split(/\n/, $files->{$path})) {
+                last if $line =~ m/^\[/;
+                # like pmxcfs, a line with nothing after the colon does not count
+                $res->{ vmid_of_path($path) }->{meta} = $1 =~ s/^\s+|\s+$//gr
+                    if $line =~ m/^meta:(.+)$/;
+            }
+        }
+
+        $on_lookup->() if $on_lookup;
+
+        return $res;
+    },
+    cfs_lock_domain => sub {
+        my ($domain, $timeout, $code, @param) = @_;
+        die "test error: unexpected lock domain '$domain'\n" if $domain ne 'guest-identity';
+        die "test error: nested domain lock\n" if $domain_locked;
+
+        if ($lock_domain_error) {
+            $@ = $lock_domain_error;
+            return undef;
+        }
+
+        local $domain_locked = 1;
+        PVE::Cluster::cfs_update();
+        # like the real one, errors of $code are passed on in $@
+        return eval { $code->(@param) };
     },
     get_config => sub {
         my ($path) = @_;
@@ -363,7 +405,12 @@ subtest 'create and lock config' => sub {
     ok($reserved, 'free VMID: reservation gets an identity');
     is_deeply(
         $state,
-        { existed => 0, previous => undef, assigned => $reserved },
+        {
+            existed => 0,
+            previous => undef,
+            'previous-pending-uid' => undef,
+            assigned => $reserved,
+        },
         'free VMID: no previous identity',
     );
     is(conf_of($class, 150)->{lock}, 'create', 'free VMID: reserved');
@@ -377,7 +424,12 @@ subtest 'create and lock config' => sub {
     $state = $class->create_and_lock_config(151, 1, 'restore');
     is_deeply(
         $state,
-        { existed => 1, previous => $stored, assigned => $stored },
+        {
+            existed => 1,
+            previous => $stored,
+            'previous-pending-uid' => undef,
+            assigned => $stored,
+        },
         'in place: previous identity',
     );
     my $conf = conf_of($class, 151);
@@ -397,7 +449,12 @@ subtest 'create and lock config' => sub {
     $state = $class->create_and_lock_config(152, 1);
     is_deeply(
         $state,
-        { existed => 1, previous => undef, assigned => identity_of($class, 152) },
+        {
+            existed => 1,
+            previous => undef,
+            'previous-pending-uid' => undef,
+            assigned => identity_of($class, 152),
+        },
         'in place without identity: reservation gets one',
     );
     ok($state->{assigned}, 'in place without identity: reserved identity');
@@ -406,7 +463,12 @@ subtest 'create and lock config' => sub {
     $state = $class->create_and_lock_config(157, 1);
     is_deeply(
         $state,
-        { existed => 1, previous => undef, assigned => identity_of($class, 157) },
+        {
+            existed => 1,
+            previous => undef,
+            'previous-pending-uid' => undef,
+            assigned => identity_of($class, 157),
+        },
         'in place with empty config: reservation gets an identity',
     );
     ok($state->{assigned}, 'in place with empty config: reserved identity');
@@ -442,7 +504,7 @@ subtest 'create and lock config' => sub {
     $state = $class->create_and_lock_config(154);
     is_deeply(
         $state,
-        { existed => 0, previous => undef, assigned => undef },
+        { existed => 0, previous => undef, 'previous-pending-uid' => undef, assigned => undef },
         'disabled, free VMID: no previous identity',
     );
     is(file_of($class, 154), "lock: create\n", 'disabled, free VMID: no identity assigned');
@@ -451,7 +513,12 @@ subtest 'create and lock config' => sub {
     $state = $class->create_and_lock_config(155, 1);
     is_deeply(
         $state,
-        { existed => 1, previous => { uid => $foreign_uid, rtime => 5 }, assigned => undef },
+        {
+            existed => 1,
+            previous => { uid => $foreign_uid, rtime => 5 },
+            'previous-pending-uid' => undef,
+            assigned => undef,
+        },
         'disabled, in place: identity from the config',
     );
     is(
@@ -459,6 +526,570 @@ subtest 'create and lock config' => sub {
         "lock: create\nmeta: ctime=1,rtime=5,uid=$foreign_uid\nname: old\n",
         'disabled, in place: config is kept',
     );
+};
+
+subtest 'create and lock config with unique and enforced guest IDs' => sub {
+    my $class = 'PVE::TestConfig';
+
+    # PVE::GuestID imported the functions it uses to access its files, so fake them there, with the
+    # parser and writer it registered for the list of used guest IDs
+    my (undef, $id_list) = PVE::Cluster::cfs_file_version('virtual-guest/used-guest-ids');
+    my $used_ids = "500\n";
+    my $dc_conf = { 'next-id' => { unique => 1, enforce => 1 } };
+    $guest_id_module->unmock('register_used_id');
+    $guest_id_module->redefine(
+        cfs_read_file => sub($filename) {
+            return $dc_conf if $filename eq 'datacenter.cfg';
+            die "test error: unexpected read of '$filename'\n"
+                if $filename ne 'virtual-guest/used-guest-ids';
+            return $id_list->{parser}->("/etc/pve/$filename", $used_ids);
+        },
+        cfs_write_file => sub($filename, $ranges) {
+            $used_ids = $id_list->{writer}->("/etc/pve/$filename", $ranges);
+        },
+        cfs_lock_file => sub($filename, $timeout, $code) {
+            return eval { $code->() };
+        },
+    );
+
+    eval { $class->create_and_lock_config(500) };
+    is($@, "guest ID 500 was used before\n", 'used VMID is refused');
+    ok(!defined(file_of($class, 500)), 'refused VMID: no config is left behind');
+
+    my $created = $class->create_and_lock_config(510);
+    $class->write_config(510, { name => 'existing' });
+    my $state = $class->create_and_lock_config(510, 1, 'restore');
+    is_deeply(
+        $state,
+        {
+            existed => 1,
+            previous => $created->{assigned},
+            'previous-pending-uid' => undef,
+            assigned => $created->{assigned},
+        },
+        'existing guest: reservation is accepted and returns its identity',
+    );
+    is(conf_of($class, 510)->{lock}, 'restore', 'existing guest: locked');
+
+    $class->create_and_lock_config(520);
+    is($used_ids, "500\n510\n520\n", 'new reservations are recorded as used');
+
+    # like a failed restore that releases the VMID it reserved
+    my $path = $class->cfs_config_path(520);
+    delete $files->{$path};
+    $versions->{$path} = ++$version_counter;
+
+    for my $force (0, 1) {
+        eval { $class->create_and_lock_config(520, $force) };
+        is($@, "guest ID 520 was used before\n", "released VMID is refused (force: $force)");
+    }
+    ok(!defined(file_of($class, 520)), 'released VMID: no config is left behind');
+
+    $guest_id_module->unmock(qw(cfs_read_file cfs_write_file cfs_lock_file));
+    $guest_id_module->redefine(register_used_id => sub { });
+};
+
+subtest 'adopt' => sub {
+    my $class = 'PVE::TestConfig';
+    my $ct_class = 'PVE::TestConfig::CT';
+
+    my $backup_uid = new_uid();
+
+    # restore to a free VMID, the final write carries the identity of the backup
+    my $reservation = $class->create_and_lock_config(200);
+    my $restored = { name => 'restored', meta => "ctime=1,rtime=5,uid=$backup_uid" };
+    $class->write_config(200, { $restored->%*, lock => 'create' });
+    my $generated = identity_of($class, 200);
+    is_deeply($generated, $reservation->{assigned}, 'final write keeps the reserved identity');
+
+    $now += 1000;
+    my $res = PVE::GuestIdentity::adopt($class, 200, $backup_uid, $reservation);
+    is_deeply(
+        $res,
+        { result => 'adopted', uid => $backup_uid, requested => $backup_uid },
+        'free uid is adopted',
+    );
+    is_deeply(
+        identity_of($class, 200),
+        { uid => $backup_uid, rtime => $now },
+        'adopted uid is stored with the current time',
+    );
+    like(
+        file_of($class, 200),
+        qr/^meta: ctime=1,rtime=$now,uid=$backup_uid$/m,
+        'other members are kept',
+    );
+    is(conf_of($class, 200)->{lock}, 'create', 'rest of the config is kept');
+    is($domain_writes, 1, 'stored under the cluster-wide lock');
+
+    my $adopted_rtime = $now;
+    $now += 1000;
+
+    my $stale = { $restored->%*, meta => "ctime=1,rtime=5,uid=$generated->{uid}" };
+    $class->write_config(200, $stale);
+    is_deeply(
+        identity_of($class, 200),
+        { uid => $backup_uid, rtime => $adopted_rtime },
+        'later write of a stale hash keeps the adopted identity',
+    );
+
+    my $writes_before = $writes;
+    $res = PVE::GuestIdentity::adopt($class, 200, $backup_uid, $reservation);
+    is_deeply(
+        $res,
+        { result => 'kept', uid => $backup_uid, requested => $backup_uid },
+        'repeated adoption keeps it',
+    );
+    is($writes, $writes_before, 'repeated adoption writes nothing');
+    is(identity_of($class, 200)->{rtime}, $adopted_rtime, 'repeated adoption keeps rtime');
+
+    # restore in place onto a guest with identity
+    $class->write_config(210, { name => 'target' });
+    my $target = identity_of($class, 210);
+    $reservation = $class->create_and_lock_config(210, 1, 'restore');
+    my $other_uid = new_uid();
+    {
+        local $lock_domain_error = "test error: unexpected lock\n";
+        $res = PVE::GuestIdentity::adopt($class, 210, $other_uid, $reservation);
+    }
+    is_deeply(
+        $res,
+        { result => 'kept', uid => $target->{uid}, requested => $other_uid },
+        'in place: identity from before the operation is kept',
+    );
+    is_deeply(identity_of($class, 210), $target, 'in place: identity is unchanged');
+
+    set_file($class, 211, "meta: ctime=1\nname: old\n");
+    $reservation = $class->create_and_lock_config(211, 1);
+    $other_uid = new_uid();
+    $res = PVE::GuestIdentity::adopt($class, 211, $other_uid, $reservation);
+    is($res->{result}, 'adopted', 'in place without identity: uid is adopted');
+    is(identity_of($class, 211)->{uid}, $other_uid, 'in place without identity: stored');
+
+    $reservation = $class->create_and_lock_config(212);
+    {
+        local $lock_domain_error = "test error: unexpected lock\n";
+        $res = PVE::GuestIdentity::adopt($class, 212, undef, $reservation);
+    }
+    is_deeply(
+        $res,
+        { result => 'skipped', uid => $reservation->{assigned}->{uid}, requested => undef },
+        'nothing to adopt',
+    );
+
+    $reservation = $class->create_and_lock_config(201);
+    $class->write_config(201, { name => 'second restore', lock => 'create' });
+    my $second = identity_of($class, 201);
+    $writes_before = $writes;
+    $res = PVE::GuestIdentity::adopt($class, 201, $backup_uid, $reservation);
+    is_deeply(
+        $res,
+        {
+            result => 'in-use',
+            uid => $second->{uid},
+            requested => $backup_uid,
+            'in-use-by' => 200,
+        },
+        'uid of another VM is not adopted',
+    );
+    is_deeply(identity_of($class, 201), $second, 'reserved identity stays');
+    is($writes, $writes_before, 'nothing is written');
+
+    # manual copies of a config
+    my $copied_uid = new_uid();
+    set_file($class, 220, "meta: rtime=1,uid=$copied_uid\n");
+    set_file($ct_class, 205, "meta: rtime=1,uid=$copied_uid\n");
+    $res = PVE::GuestIdentity::adopt($class, 201, $copied_uid, $reservation);
+    is($res->{'in-use-by'}, 205, 'lowest VMID of several holders is reported');
+
+    my $hidden_uid = new_uid();
+    set_file($class, 221, "meta: rtime=1,uid=$hidden_uid\nmeta:\n");
+    $res = PVE::GuestIdentity::adopt($class, 201, $hidden_uid, $reservation);
+    is($res->{'in-use-by'}, 221, 'meta line without value does not hide the uid before it');
+
+    my $ct_uid = new_uid();
+    my $ct_reservation = $ct_class->create_and_lock_config(300);
+    $res = PVE::GuestIdentity::adopt($ct_class, 300, $ct_uid, $ct_reservation);
+    is($res->{result}, 'adopted', 'container adopts a free uid');
+    like(file_of($ct_class, 300), qr/^meta: rtime=$now,uid=$ct_uid$/m, 'container config');
+
+    $res = PVE::GuestIdentity::adopt($class, 201, $ct_uid, $reservation);
+    is($res->{'in-use-by'}, 300, 'uid of a container is not adopted for a VM');
+
+    $ct_reservation = $ct_class->create_and_lock_config(301);
+    $res = PVE::GuestIdentity::adopt($ct_class, 301, $backup_uid, $ct_reservation);
+    is($res->{'in-use-by'}, 200, 'uid of a VM is not adopted for a container');
+
+    # another process writes the config after the cluster-wide lookup
+    $reservation = $class->create_and_lock_config(230);
+    $class->write_config(230, { name => 'restored', lock => 'create' });
+    PVE::Cluster::cfs_update();
+    $class->load_config(230);
+    {
+        local $on_lookup = sub {
+            set_file($class, 230, file_of($class, 230) =~ s/^name: .*$/name: hook/mr);
+        };
+        $res = PVE::GuestIdentity::adopt($class, 230, new_uid(), $reservation);
+    }
+    is($res->{result}, 'adopted', 'concurrent write: uid is adopted');
+    is(conf_of($class, 230)->{name}, 'hook', 'concurrent write: its change is kept');
+
+    $reservation = $class->create_and_lock_config(202);
+    my $before = identity_of($class, 202);
+    {
+        local $lock_domain_error = "cfs-lock 'domain-guest-identity' error: no quorum!\n";
+        eval { PVE::GuestIdentity::adopt($class, 202, new_uid(), $reservation) };
+        is($@, $lock_domain_error, 'lock error is passed on');
+        is_deeply(identity_of($class, 202), $before, 'lock error: identity is unchanged');
+    }
+
+    my $missing =
+        { existed => 0, previous => undef, assigned => PVE::GuestIdentity::new_identity() };
+    eval { PVE::GuestIdentity::adopt($class, 299, new_uid(), $missing) };
+    like($@, qr/does not exist/, 'missing config is an error');
+
+    eval { PVE::GuestIdentity::adopt($class, 202, 'GAYTEMZUGU3DOOBZMFRG', $reservation) };
+    like($@, qr/invalid guest identity uid/, 'invalid uid is refused');
+
+    for my $invalid (undef, {}, { existed => 0, previous => undef, assigned => undef }) {
+        eval { PVE::GuestIdentity::adopt($class, 202, new_uid(), $invalid) };
+        like($@, qr/missing guest identity reservation/, 'missing reservation is refused');
+    }
+
+    eval {
+        PVE::GuestIdentity::adopt('PVE::TestConfig::NoIdentity', 202, new_uid(), $reservation);
+    };
+    like($@, qr/not enabled/, 'guest type without identities is refused');
+};
+
+subtest 'adopt from backup' => sub {
+    my $class = 'PVE::TestConfig';
+
+    my $warnings = [];
+    my $restenv_module = Test::MockModule->new('PVE::RESTEnvironment');
+    $restenv_module->redefine(log_warn => sub($msg) { push $warnings->@*, $msg; });
+
+    my $adopt_from_backup = sub($vmid, $uid, $reservation) {
+        my $output = '';
+        open(my $fh, '>', \$output) or die "unable to capture output - $!\n";
+        my $previous_fh = select($fh);
+        eval { PVE::GuestIdentity::adopt_from_backup($class, $vmid, $uid, $reservation) };
+        my $err = $@;
+        select($previous_fh);
+        close($fh);
+        die $err if $err;
+        return $output;
+    };
+
+    my $backup_uid = new_uid();
+    my $reservation = $class->create_and_lock_config(240);
+    is(
+        $adopt_from_backup->(240, $backup_uid, $reservation),
+        "guest identity: adopted uid $backup_uid from the backup\n",
+        'result is logged',
+    );
+    is(identity_of($class, 240)->{uid}, $backup_uid, 'uid is adopted');
+
+    $reservation = $class->create_and_lock_config(242);
+    my $assigned_uid = $reservation->{assigned}->{uid};
+    is(
+        $adopt_from_backup->(242, $backup_uid, $reservation),
+        "guest identity: backup uid $backup_uid is in use by guest 240, keeping uid"
+            . " $assigned_uid\n",
+        'uid in use: logged',
+    );
+    is(
+        $adopt_from_backup->(242, undef, $reservation),
+        "guest identity: new uid $assigned_uid\n",
+        'nothing to adopt: logged',
+    );
+
+    $class->write_config(243, { name => 'target' });
+    $reservation = $class->create_and_lock_config(243, 1);
+    is(
+        $adopt_from_backup->(243, new_uid(), $reservation),
+        "guest identity: kept uid $reservation->{previous}->{uid}\n",
+        'target with identity: logged',
+    );
+
+    $reservation = $class->create_and_lock_config(241);
+    $assigned_uid = $reservation->{assigned}->{uid};
+    $backup_uid = new_uid();
+    $class->record_pending_uid(241, $backup_uid);
+    {
+        local $lock_domain_error = "cfs-lock 'domain-guest-identity' error: no quorum!\n";
+        is($adopt_from_backup->(241, $backup_uid, $reservation), '', 'failure: no result');
+    }
+    is_deeply(
+        $warnings,
+        [
+            "guest identity: unable to adopt backup uid $backup_uid, keeping uid $assigned_uid"
+                . " - cfs-lock 'domain-guest-identity' error: no quorum!",
+        ],
+        'failure only warns',
+    );
+
+    $warnings = [];
+    {
+        local $get_config_error = "Connection refused\n";
+        is($adopt_from_backup->(241, undef, $reservation), '', 'nothing to adopt, failure');
+    }
+    is_deeply(
+        $warnings,
+        [
+            "guest identity: keeping uid $assigned_uid - unable to remove the pending uid -"
+                . " Connection refused",
+        ],
+        'nothing to adopt, failure: warning without requested uid',
+    );
+};
+
+# Returns the pending uid of a restore of a backup with the uid $uid over the guest $vmid, without
+# 'allow-identity-mismatch'.
+my sub prepare_restore($class, $vmid, $reservation, $uid) {
+    return PVE::GuestIdentity::prepare_restore($class, $vmid, $reservation, $uid, 0);
+}
+
+# like the guest that a failed operation leaves behind, with the lock removed by its error handling
+my sub unlock_config($class, $vmid) {
+    my $conf = conf_of($class, $vmid);
+    delete $conf->{lock};
+    $class->write_config($vmid, $conf);
+}
+
+my sub pending_of($class, $vmid) {
+    my $conf = conf_of($class, $vmid);
+    return $conf->{pending} ? $conf->{pending}->{meta} : undef;
+}
+
+subtest 'pending uid' => sub {
+    my $class = 'PVE::TestConfig';
+
+    # a restore to a free VMID records the uid of the backup, then fails and leaves the guest
+    my $backup_uid = new_uid();
+    my $first = $class->create_and_lock_config(400);
+    my $leftover = $first->{assigned};
+    is(prepare_restore($class, 400, $first, $backup_uid), $backup_uid, 'free VMID: adoptable');
+    is(pending_of($class, 400), "uid=$backup_uid", 'pending uid is recorded');
+    is_deeply(identity_of($class, 400), $leftover, 'stored identity is kept');
+    is(conf_of($class, 400)->{lock}, 'create', 'rest of the config is kept');
+    unlock_config($class, 400);
+    is(pending_of($class, 400), "uid=$backup_uid", 'write of the loaded config keeps it');
+
+    # a retry at another VMID adopts the uid, as a pending uid is not in use
+    my $elsewhere = $class->create_and_lock_config(401);
+    my $res = PVE::GuestIdentity::adopt($class, 401, $backup_uid, $elsewhere);
+    is($res->{result}, 'adopted',
+        'retry elsewhere: pending uid of another guest is not in use');
+    is(pending_of($class, 400), "uid=$backup_uid", 'retry elsewhere: leftover keeps it');
+
+    # a retry over the leftover is a restore of the same backup, but the uid is in use by now
+    my $retry = $class->create_and_lock_config(400, 1);
+    is_deeply(
+        $retry,
+        {
+            existed => 1,
+            previous => $leftover,
+            'previous-pending-uid' => $backup_uid,
+            assigned => $leftover,
+        },
+        'reservation reports the pending uid',
+    );
+    my $writes_before = $writes;
+    is(prepare_restore($class, 400, $retry, $backup_uid), $backup_uid,
+        'pending uid: adoptable');
+    is(prepare_restore($class, 400, $retry, $leftover->{uid}), undef, 'stored uid matches');
+    eval { prepare_restore($class, 400, $retry, new_uid()) };
+    like($@, qr/^backup belongs to another guest/, 'other uid does not match');
+    is($writes, $writes_before, 'pending uid is not written again');
+    $res = PVE::GuestIdentity::adopt($class, 400, $backup_uid, $retry);
+    is_deeply(
+        $res,
+        {
+            result => 'in-use',
+            uid => $leftover->{uid},
+            requested => $backup_uid,
+            'in-use-by' => 401,
+        },
+        'retry in place after the retry elsewhere: in use',
+    );
+    is_deeply(identity_of($class, 400), $leftover, 'in use: identity is kept');
+    ok(!defined(pending_of($class, 400)), 'in use: pending uid is removed');
+
+    # a failed restore over a guest without identity, then retried in place
+    set_file($class, 410, "name: old\n");
+    $first = $class->create_and_lock_config(410, 1);
+    $backup_uid = new_uid();
+    is(prepare_restore($class, 410, $first, $backup_uid), $backup_uid,
+        'no identity: adoptable');
+    unlock_config($class, 410);
+
+    $retry = $class->create_and_lock_config(410, 1);
+    is($retry->{'previous-pending-uid'}, $backup_uid, 'retry in place: pending uid reported');
+    $class->write_config(
+        410,
+        { name => 'restored', lock => 'create', pending => { meta => "uid=$backup_uid" } },
+    );
+    $now += 1000;
+    $writes_before = $writes;
+    $res = PVE::GuestIdentity::adopt($class, 410, $backup_uid, $retry);
+    is_deeply(
+        $res,
+        { result => 'adopted', uid => $backup_uid, requested => $backup_uid },
+        'retry in place: pending uid is adopted',
+    );
+    is_deeply(identity_of($class, 410), { uid => $backup_uid, rtime => $now }, 'stored');
+    ok(!defined(pending_of($class, 410)), 'retry in place: pending uid is removed');
+    is($writes, $writes_before + 1, 'in the same write');
+    is(conf_of($class, 410)->{name}, 'restored', 'rest of the config is kept');
+
+    # an in-place restore of another backup keeps the identity, with a pending uid of the earlier
+    # backup
+    set_file($class, 430, "name: old\n");
+    $first = $class->create_and_lock_config(430, 1);
+    my $earlier_uid = new_uid();
+    $class->record_pending_uid(430, $earlier_uid);
+    unlock_config($class, 430);
+    $retry = $class->create_and_lock_config(430, 1);
+    my $target = identity_of($class, 430);
+    my $other_uid = new_uid();
+    eval { prepare_restore($class, 430, $retry, $other_uid) };
+    like($@, qr/^backup belongs to another guest/, 'other backup does not match');
+    is(pending_of($class, 430), "uid=$earlier_uid", 'other backup: pending uid is unchanged');
+    {
+        local $lock_domain_error = "test error: unexpected lock\n";
+        $res = PVE::GuestIdentity::adopt($class, 430, $other_uid, $retry);
+    }
+    is($res->{result}, 'kept', 'other backup: identity is kept');
+    is_deeply(identity_of($class, 430), $target, 'other backup: identity is unchanged');
+    ok(!defined(pending_of($class, 430)), 'other backup: pending uid is removed');
+
+    # nothing to adopt, for example with 'unique'
+    $first = $class->create_and_lock_config(440);
+    $class->record_pending_uid(440, new_uid());
+    $res = PVE::GuestIdentity::adopt($class, 440, undef, $first);
+    is($res->{result}, 'skipped', 'nothing to adopt: skipped');
+    ok(!defined(pending_of($class, 440)), 'nothing to adopt: pending uid is removed');
+
+    # adopting fails
+    $first = $class->create_and_lock_config(450);
+    $backup_uid = new_uid();
+    $class->record_pending_uid(450, $backup_uid);
+    {
+        local $lock_domain_error = "cfs-lock 'domain-guest-identity' error: no quorum!\n";
+        eval { PVE::GuestIdentity::adopt($class, 450, $backup_uid, $first) };
+        is($@, $lock_domain_error, 'lock error is passed on');
+    }
+    is_deeply(identity_of($class, 450), $first->{assigned},
+        'lock error: identity is unchanged');
+    is(
+        pending_of($class, 450),
+        "uid=$backup_uid",
+        'lock error: nothing decided, pending uid stays',
+    );
+
+    unlock_config($class, 450);
+    $retry = $class->create_and_lock_config(450, 1);
+    $res = PVE::GuestIdentity::adopt($class, 450, $backup_uid, $retry);
+    is($res->{result}, 'adopted', 'lock error: a later operation adopts the pending uid');
+    ok(!defined(pending_of($class, 450)), 'lock error: then the pending uid is removed');
+
+    # removing the pending uid keeps a stored identity that the parser could not read
+    my $config_module = Test::MockModule->new('PVE::TestConfig', no_auto => 1);
+    $config_module->mock(
+        load_config => sub {
+            my $conf = $config_module->original('load_config')->(@_);
+            delete $conf->{meta};
+            return $conf;
+        },
+    );
+    $class->write_config(470, { name => 'target', meta => 'ctime=1' });
+    $target = identity_of($class, 470);
+    $retry = $class->create_and_lock_config(470, 1);
+    $class->record_pending_uid(470, new_uid());
+    {
+        local $lock_domain_error = "test error: unexpected lock\n";
+        $res = PVE::GuestIdentity::adopt($class, 470, new_uid(), $retry);
+    }
+    $config_module->unmock('load_config');
+    is($res->{result}, 'kept', 'unreadable meta: identity is kept');
+    ok(!defined(pending_of($class, 470)), 'unreadable meta: pending uid is removed');
+    is_deeply(identity_of($class, 470), $target, 'unreadable meta: stored identity is kept');
+
+    # removing the pending uid fails
+    $class->write_config(460, { name => 'target' });
+    $retry = $class->create_and_lock_config(460, 1);
+    $class->record_pending_uid(460, new_uid());
+    {
+        local $get_config_error = "Connection refused\n";
+        eval { PVE::GuestIdentity::adopt($class, 460, new_uid(), $retry) };
+        is($@, "unable to remove the pending uid - Connection refused\n", 'error is passed on');
+    }
+    ok(defined(pending_of($class, 460)), 'pending uid stays');
+
+    eval { $class->record_pending_uid(460, 'GAYTEMZUGU3DOOBZMFRG') };
+    like($@, qr/invalid guest identity uid/, 'invalid pending uid is refused');
+};
+
+subtest 'config view with pending changes' => sub {
+    my $class = 'PVE::TestConfig';
+
+    my $pending_uid = new_uid();
+    $class->write_config(480, { name => 'old', meta => 'ctime=1' });
+    my $meta = conf_of($class, 480)->{meta};
+    $class->record_pending_uid(480, $pending_uid);
+    my $conf = conf_of($class, 480);
+    $conf->{pending}->{name} = 'new';
+    $class->write_config(480, $conf);
+
+    PVE::Cluster::cfs_update();
+    $conf = $class->load_current_config(480);
+    is($conf->{name}, 'new', 'other pending change is shown');
+    is($conf->{meta}, $meta, 'pending uid is not shown as meta');
+    ok(!exists($conf->{pending}), 'no pending section');
+    is($class->load_current_config(480, 1)->{name}, 'old', 'current values only');
+
+    set_file($class, 481, "meta: $meta\nname: old\n\n[PENDING]\ndelete: meta\n");
+    PVE::Cluster::cfs_update();
+    is($class->load_current_config(481)->{meta}, $meta, 'pending deletion of meta not shown');
+
+    # a guest type without identities may apply pending changes of 'meta'
+    $class = 'PVE::TestConfig::NoIdentity';
+    set_file($class, 482, "meta: ctime=1\nname: old\n\n[PENDING]\nmeta: ctime=2\n");
+    PVE::Cluster::cfs_update();
+    is($class->load_current_config(482)->{meta}, 'ctime=2', 'without identities: shown');
+};
+
+subtest 'drop pending meta' => sub {
+    my $class = 'PVE::TestConfig';
+    my $uid = new_uid();
+
+    my $uid_dropped = "guest identity: dropping pending uid $uid of an unfinished restore - a"
+        . " retry now needs 'allow-identity-mismatch'\n";
+    my $ignored = "ignoring pending change of read-only option 'meta'\n";
+    my $tests = [
+        ['pending uid', { meta => "uid=$uid", name => 'new' }, { name => 'new' }, $uid_dropped],
+        ['other change', { meta => 'ctime=2', name => 'new' }, { name => 'new' }, $ignored],
+        ['deletion', { delete => 'meta,name' }, { delete => 'name' }, $ignored],
+        ['uid and deletion', { meta => "uid=$uid", delete => 'meta' }, {}, $uid_dropped],
+        ['no change of meta', { name => 'new' }, { name => 'new' }, ''],
+    ];
+
+    for my $test (@$tests) {
+        my ($name, $pending, $expected, $expected_warning) = @$test;
+        my $conf = { meta => 'ctime=1', name => 'old', pending => { $pending->%* } };
+
+        my $warnings = '';
+        local $SIG{__WARN__} = sub { $warnings .= $_[0]; };
+        $class->drop_pending_meta($conf);
+
+        is_deeply(
+            $conf,
+            { meta => 'ctime=1', name => 'old', pending => $expected },
+            "$name: only a change of meta is dropped",
+        );
+        is($warnings, $expected_warning, "$name: warning");
+    }
 };
 
 done_testing();

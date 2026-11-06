@@ -5,6 +5,8 @@ use v5.36;
 use Time::HiRes;
 
 use PVE::Cluster;
+use PVE::JSONSchema;
+use PVE::RESTEnvironment;
 
 # The identity of a guest, VM or container alike, consists of two members of the 'meta' property
 # string in the top-level section of its config: 'uid', a random identifier of the guest (100 bits
@@ -171,6 +173,220 @@ sub parse_identity_from_raw_config($raw) {
     }
 
     return parse_identity($meta);
+}
+
+# A restore adopts a uid in three steps. An incoming remote migration does the same without step 2:
+# it calls adopt right after the reservation, before anything of the guest gets transferred, so that
+# a uid in use by another guest can still stop the migration. Its later config writes keep the
+# identity, as every config write does, see PVE::AbstractConfig::write_config.
+#
+# 1. Reserve: create_and_lock_config of the config class writes the config. The guest then has an
+#    identity, the one it had before or a new one. The returned reservation records which
+#    identity the guest had before, if any, and which one it has now.
+# 2. Remember: when the restore knows the uid of the backup, it calls prepare_restore, which stores
+#    that uid as pending uid if step 3 could adopt it. It stores the uid with 'unique' as well,
+#    although step 3 then does not adopt it. The pending uid is a pending change of 'meta' with only
+#    the uid member. It does not count as in use, and no config write applies it. If the restore
+#    fails, the guest that it leaves behind still has the pending uid, so a retry can adopt the uid.
+# 3. Adopt: at its end, the restore calls adopt. The guest gets the uid if it had no identity
+#    before step 1, or had the same uid as pending uid, and if no other guest in the cluster has
+#    that uid. Otherwise, the guest keeps the identity it has after step 1.
+
+# Returns the pending uid in the parsed config $conf, undef if there is none.
+sub get_pending_uid($conf) {
+    my $pending = $conf->{pending} ? parse_identity($conf->{pending}->{meta}) : undef;
+
+    return $pending ? $pending->{uid} : undef;
+}
+
+# Sets $uid as pending uid in the parsed config $conf, replacing any pending change of 'meta', or
+# removes such a change if $uid is undef.
+sub set_pending_uid($conf, $uid) {
+    if (defined($uid)) {
+        die "invalid guest identity uid '$uid'\n" if !is_valid_uid($uid);
+        $conf->{pending}->{meta} = "uid=$uid";
+    } elsif ($conf->{pending}) {
+        delete $conf->{pending}->{meta};
+    }
+
+    return;
+}
+
+# Returns $uid if adopt would try to make it the uid of the guest that the operation reserved with
+# $reservation. That is the case if the guest had no identity before the operation, or had $uid as
+# pending uid. Returns undef otherwise, or if $uid is undef.
+my sub adoptable_uid($reservation, $uid) {
+    return undef if !defined($uid);
+    return $uid
+        if !$reservation->{previous} || ($reservation->{'previous-pending-uid'} // '') eq $uid;
+
+    return undef;
+}
+
+PVE::JSONSchema::register_standard_option(
+    'pve-guest-allow-identity-mismatch',
+    {
+        type => 'boolean',
+        description => "Allow overwriting an existing guest with a backup of another guest, as"
+            . " detected by a different 'uid' in 'meta'. The guest then keeps its own uid. Not"
+            . " needed to restore a backup again over a guest that an unfinished restore of that"
+            . " backup left behind.",
+        optional => 1,
+        default => 0,
+    },
+);
+
+# Step 2 of a restore, see above. $backup_uid is the uid of the backup, or undef if it has none. The
+# restore overwrites the guest $vmid of the config class $class and reserved it with $reservation.
+# This checks $backup_uid against that guest and stores it as pending uid if adopt could make it the
+# uid of the guest. The caller must hold the config lock of $vmid. Without $allow_mismatch, this
+# must run before the restore changes anything else of the guest.
+#
+# If the guest had another uid before the restore, and did not have $backup_uid as pending uid
+# either, the backup most likely belongs to another guest. This then dies. With $allow_mismatch, it
+# only logs that and the guest keeps its uid.
+#
+# Returns the pending uid, undef if there is none. Until the restore calls adopt, it has to keep the
+# pending uid in every config that it writes, see set_pending_uid, also with 'unique', which only
+# keeps the restore itself from adopting the uid.
+sub prepare_restore($class, $vmid, $reservation, $backup_uid, $allow_mismatch) {
+    return undef if !$reservation || !defined($backup_uid);
+
+    my $target = $reservation->{previous};
+    my $pending_uid = adoptable_uid($reservation, $backup_uid);
+
+    if ($target && !defined($pending_uid) && $target->{uid} ne $backup_uid) {
+        my $guest_type = $class->guest_type();
+        if (!$allow_mismatch) {
+            die "backup belongs to another guest: its uid '$backup_uid' differs from uid"
+                . " '$target->{uid}' of the existing $guest_type $vmid - use"
+                . " 'allow-identity-mismatch' to overwrite the $guest_type anyway\n";
+        }
+
+        print "guest identity: ignoring backup uid $backup_uid, $guest_type $vmid keeps uid"
+            . " $target->{uid}\n";
+    }
+
+    $class->record_pending_uid($vmid, $pending_uid) if defined($pending_uid);
+
+    return $pending_uid;
+}
+
+my sub try_adopt($class, $vmid, $uid, $reservation) {
+    my $outcome = sub($result, $current_uid, @extra) {
+        return { result => $result, uid => $current_uid, requested => $uid, @extra };
+    };
+
+    my $previous = $reservation->{previous};
+    return $outcome->('kept', $previous->{uid}) if $previous && !adoptable_uid($reservation, $uid);
+
+    my $assigned_uid = $reservation->{assigned}->{uid};
+    return $outcome->('skipped', $assigned_uid) if !defined($uid);
+
+    # Shared by all guest types, as they share the VMID and uid namespaces. Lock order: the config
+    # lock of the guest, then this lock.
+    my $res = PVE::Cluster::cfs_lock_domain(
+        'guest-identity',
+        undef,
+        sub {
+            my $metas = PVE::Cluster::get_guest_config_properties(['meta']);
+
+            my $current = parse_identity($metas->{$vmid} ? $metas->{$vmid}->{meta} : undef);
+            return $outcome->('kept', $uid) if $current && $current->{uid} eq $uid;
+
+            for my $other (sort { $a <=> $b } keys %$metas) {
+                my $identity = parse_identity($metas->{$other}->{meta});
+                next if !$identity || $identity->{uid} ne $uid;
+
+                my $current_uid = $current ? $current->{uid} : undef;
+                return $outcome->('in-use', $current_uid, 'in-use-by' => $other);
+            }
+
+            $class->__identity_replace($vmid, new_identity($uid));
+
+            return $outcome->('adopted', $uid);
+        },
+    );
+    die $@ if $@;
+
+    return $res;
+}
+
+# Makes $uid, for example the one of a restored backup or of the source guest of a remote
+# migration, the uid of the guest $vmid, with the current time as rtime, where the rules below
+# allow that.
+#
+# $class is the config class of the guest and must have guest identities enabled. $reservation is
+# what create_and_lock_config returned for the operation. The caller must still hold the config
+# lock of $vmid. A restore calls this after its final config write, as its writes keep the pending
+# uid until then. $uid can be undef if there is nothing to adopt, for example for a backup without
+# uid.
+#
+# A guest that had an identity before the operation keeps it, unless it had $uid as pending uid.
+# Otherwise, $uid replaces the identity that the guest has since the reservation, but only if no
+# other guest in the cluster has $uid.
+#
+# Each result listed below is final, so adopt then removes the pending uid from the config. If the
+# cluster-wide identity lock cannot be taken, for example without quorum, there is no result: adopt
+# dies and the pending uid stays, so that a later operation can still adopt it.
+#
+# Returns a hash with the keys 'result', 'uid' (the uid of $vmid afterwards), 'requested' ($uid)
+# and, for the result 'in-use', 'in-use-by' (the lowest VMID of the other guests with $uid). The
+# result is one of:
+#   kept     - the guest had an identity before the operation and keeps it, or it already has $uid
+#   adopted  - the guest now has $uid
+#   in-use   - another guest has $uid, so the guest keeps the identity of the reservation
+#   skipped  - $uid is undef, so the guest keeps the identity of the reservation
+sub adopt($class, $vmid, $uid, $reservation) {
+    die "guest identities are not enabled for this guest type\n" if !$class->__identity_enabled();
+    die "missing guest identity reservation\n"
+        if ref($reservation) ne 'HASH' || !$reservation->{assigned};
+    die "invalid guest identity uid '$uid'\n" if defined($uid) && !is_valid_uid($uid);
+
+    my $res = try_adopt($class, $vmid, $uid, $reservation);
+
+    # the config write that adopts a uid removes the pending uid, too
+    if ($res->{result} ne 'adopted') {
+        eval { $class->record_pending_uid($vmid, undef) };
+        die "unable to remove the pending uid - $@" if $@;
+    }
+
+    return $res;
+}
+
+# Returns the task log line for the result $res of adopt, so that all guest types use the same
+# wording. $origin names where the requested uid comes from.
+my sub adopt_result_message($res, $origin) {
+    my ($result, $requested) = $res->@{qw(result requested)};
+    my $uid = $res->{uid} // 'none';
+
+    return "guest identity: kept uid $uid" if $result eq 'kept';
+    return "guest identity: adopted uid $uid from the $origin" if $result eq 'adopted';
+    return "guest identity: new uid $uid" if $result eq 'skipped';
+
+    return "guest identity: $origin uid $requested is in use by guest $res->{'in-use-by'}, keeping"
+        . " uid $uid";
+}
+
+# Calls adopt for $uid, the uid of the backup or undef if the restore does not adopt one, as the
+# last step of a restore, and logs the result. A failure only warns, as the guest itself got
+# restored and keeps the identity of its reservation.
+sub adopt_from_backup($class, $vmid, $uid, $reservation) {
+    my $res = eval { adopt($class, $vmid, $uid, $reservation) };
+    if (my $err = $@) {
+        chomp($err);
+        my $kept = $reservation->{assigned}->{uid} // 'none';
+        my $msg =
+            defined($uid)
+            ? "unable to adopt backup uid $uid, keeping uid $kept"
+            : "keeping uid $kept";
+        PVE::RESTEnvironment::log_warn("guest identity: $msg - $err");
+        return;
+    }
+
+    print adopt_result_message($res, 'backup') . "\n";
+
+    return;
 }
 
 # Returns undef if $node runs a version of Proxmox VE that keeps the identity when writing guest

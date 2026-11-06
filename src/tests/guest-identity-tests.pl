@@ -13,6 +13,25 @@ use PVE::Tools;
 
 use PVE::GuestIdentity;
 
+# records the pending uids that get written, as [$vmid, $uid]
+my $recorded = [];
+
+package PVE::TestGuest::VM {
+    sub guest_type { return 'VM'; }
+
+    sub record_pending_uid($class, $vmid, $uid) {
+        push $recorded->@*, [$vmid, $uid];
+    }
+}
+
+package PVE::TestGuest::CT {
+    use base qw(PVE::TestGuest::VM);
+
+    sub guest_type { return 'CT'; }
+}
+
+package main;
+
 subtest 'generation with fixed random bytes and time' => sub {
     my $random_bytes = [];
     my $time_ms = 1_700_000_000_123;
@@ -341,6 +360,115 @@ subtest 'node version check' => sub {
             "refusal of '$node' says why",
         );
     }
+};
+
+subtest 'pending uid' => sub {
+    my $uid = 'gaytemzugu3doobzmfrg';
+    my $other = 'aaaaaaaaaaaaaaaaaaaa';
+
+    is(PVE::GuestIdentity::get_pending_uid({}), undef, 'none without pending section');
+    is(PVE::GuestIdentity::get_pending_uid({ pending => { memory => 1 } }), undef, 'none');
+    is(
+        PVE::GuestIdentity::get_pending_uid({ pending => { meta => 'uid=' . uc($uid) } }),
+        undef,
+        'invalid pending uid is none',
+    );
+    is(
+        PVE::GuestIdentity::get_pending_uid({ pending => { meta => "ctime=1,uid=$uid" } }),
+        $uid,
+        'other members are ignored',
+    );
+
+    my $conf = { meta => "rtime=1,uid=$other", pending => { memory => 1 } };
+    PVE::GuestIdentity::set_pending_uid($conf, $uid);
+    is_deeply(
+        $conf,
+        { meta => "rtime=1,uid=$other", pending => { memory => 1, meta => "uid=$uid" } },
+        'set: only the uid member, other pending changes are kept',
+    );
+    is(PVE::GuestIdentity::get_pending_uid($conf), $uid, 'set: read back');
+
+    PVE::GuestIdentity::set_pending_uid($conf, undef);
+    is_deeply(
+        $conf,
+        { meta => "rtime=1,uid=$other", pending => { memory => 1 } },
+        'remove: other pending changes are kept',
+    );
+    $conf = {};
+    PVE::GuestIdentity::set_pending_uid($conf, undef);
+    is_deeply($conf, {}, 'remove without pending section changes nothing');
+
+    eval { PVE::GuestIdentity::set_pending_uid({}, 'GAYTEMZUGU3DOOBZMFRG') };
+    like($@, qr/invalid guest identity uid/, 'invalid uid is refused');
+};
+
+subtest 'prepare restore' => sub {
+    my $uid = 'gaytemzugu3doobzmfrg';
+    my $other = 'aaaaaaaaaaaaaaaaaaaa';
+
+    my $previous = { uid => $other, rtime => 1 };
+    my $without_identity = { previous => undef, 'previous-pending-uid' => undef };
+    my $with_identity = { previous => $previous, 'previous-pending-uid' => undef };
+    my $leftover = { previous => $previous, 'previous-pending-uid' => $uid };
+    my $other_leftover = { previous => $previous, 'previous-pending-uid' => 'b' x 20 };
+
+    # reservation, uid of the backup, 'allow-identity-mismatch', then what is expected: whether
+    # the restore is refused or logs that it ignores the uid of the backup, and the pending uid
+    my $tests = [
+        [$without_identity, $uid, 0, undef, $uid, 'target without identity'],
+        [$without_identity, undef, 0, undef, undef, 'backup without uid'],
+        [undef, $uid, 0, undef, undef, 'no reservation'],
+        [$with_identity, $other, 0, undef, undef, 'backup of the target'],
+        [$with_identity, $uid, 0, 'refused', undef, 'backup of another guest'],
+        [$with_identity, $uid, 1, 'ignored', undef, 'backup of another guest, allowed'],
+        [$leftover, $uid, 0, undef, $uid, 'leftover of the backup'],
+        [$leftover, $other, 0, undef, undef, 'leftover of the backup, backup of the target'],
+        [$other_leftover, $uid, 0, 'refused', undef, 'leftover of another backup'],
+        [$other_leftover, $uid, 1, 'ignored', undef, 'leftover of another backup, allowed'],
+    ];
+
+    for my $class (qw(PVE::TestGuest::VM PVE::TestGuest::CT)) {
+        my $type = $class->guest_type();
+        my $messages = {
+            refused =>
+                "backup belongs to another guest: its uid '$uid' differs from uid '$other' of"
+                . " the existing $type 100 - use 'allow-identity-mismatch' to overwrite the $type"
+                . " anyway\n",
+            ignored => "guest identity: ignoring backup uid $uid, $type 100 keeps uid $other\n",
+        };
+
+        for my $test (@$tests) {
+            my ($reservation, $backup_uid, $allow_mismatch, $outcome, $pending_uid, $name) =
+                @$test;
+            $recorded = [];
+
+            my $output = '';
+            open(my $fh, '>', \$output) or die "unable to capture output - $!\n";
+            my $previous_fh = select($fh);
+            my $res = eval {
+                PVE::GuestIdentity::prepare_restore(
+                    $class, 100, $reservation, $backup_uid, $allow_mismatch,
+                );
+            };
+            my $err = $@;
+            select($previous_fh);
+            close($fh);
+
+            is_deeply(
+                [$err, $output, $res, $recorded],
+                [
+                    ($outcome // '') eq 'refused' ? $messages->{refused} : '',
+                    ($outcome // '') eq 'ignored' ? $messages->{ignored} : '',
+                    $pending_uid,
+                    defined($pending_uid) ? [[100, $pending_uid]] : [],
+                ],
+                "$type: $name",
+            );
+        }
+    }
+
+    my $option = PVE::JSONSchema::get_standard_option('pve-guest-allow-identity-mismatch');
+    is($option->{type}, 'boolean', 'the override is a standard option');
 };
 
 done_testing();
