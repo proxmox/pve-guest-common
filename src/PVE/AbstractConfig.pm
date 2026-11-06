@@ -312,12 +312,20 @@ sub load_current_config {
     return $conf;
 }
 
-# Reserves $vmid by writing its config with the lock $lock, 'create' by default. An existing config
-# is only allowed with $allow_existing, and required if that is 'require'.
+# Reserves $vmid for an operation by writing its config with the lock $lock, 'create' by default.
+# An existing config is only allowed with $allow_existing, and required if that is 'require'. It
+# must not be locked. With identities enabled, one that fails to load is refused as well.
+#
+# Returns the state of the guest identity around the write, captured under the guest config lock,
+# as the write can assign an identity to a config without one. Adopting a uid later needs it.
+#   existed - whether a config existed before
+#   previous - the guest identity of that config, undef if it had none or did not exist
+#   assigned - the guest identity of the config after the write, undef with identities
+#     disabled
 sub create_and_lock_config {
     my ($class, $vmid, $allow_existing, $lock) = @_;
 
-    $class->lock_config_full(
+    return $class->lock_config_full(
         $vmid,
         5,
         sub {
@@ -331,10 +339,32 @@ sub create_and_lock_config {
             die $class->guest_type() . " $vmid already exists\n"
                 if defined($conf) && !$allow_existing;
             die $load_err if !defined($conf) && ($allow_existing // '') eq 'require';
+            my $existed = defined($conf);
+            my $previous = $existed ? $class->get_identity($conf) : undef;
+
             $conf //= {};
             $class->check_lock($conf);
             $conf->{lock} = $lock // 'create';
+
+            if ($class->__identity_enabled()) {
+                # use what the write itself sees as stored, see write_config
+                my $stored = $class->__identity_read_stored($vmid);
+                # this also finds a config that failed to load, replacing it with an empty one
+                # would drop its lock and protection
+                if ($stored) {
+                    die $class->guest_type() . " $vmid already exists\n" if !$allow_existing;
+                    die $load_err if !$existed;
+                }
+                $existed = defined($stored);
+                $previous = $stored ? $stored->{identity} : undef;
+            }
             $class->write_config($vmid, $conf);
+
+            return {
+                existed => $existed ? 1 : 0,
+                previous => $previous,
+                assigned => $class->__identity_enabled() ? $class->get_identity($conf) : undef,
+            };
         },
     );
 }

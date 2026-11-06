@@ -136,6 +136,12 @@ $cluster_module->redefine(
         $versions->{$path} = ++$version_counter;
         $cache->{$path}->{version} = undef if $cache->{$path};
     },
+    check_vmid_unused => sub {
+        my ($vmid, $noerr) = @_;
+        return 1 if !grep { defined($files->{$_}) && vmid_of_path($_) == $vmid } keys %$files;
+        return undef if $noerr;
+        die "guest $vmid already exists\n";
+    },
     get_config => sub {
         my ($path) = @_;
         die $get_config_error if $get_config_error;
@@ -149,7 +155,7 @@ $cluster_module->redefine(
 my $uid_counter = 0;
 my $now = 1_700_000_000_000;
 
-# recording used guest IDs needs the cluster filesystem and is not what gets tested here
+# recording used guest IDs needs the cluster filesystem, only one subtest fakes the list of them
 my $guest_id_module = Test::MockModule->new('PVE::GuestID');
 $guest_id_module->redefine(register_used_id => sub { });
 
@@ -346,6 +352,112 @@ subtest 'snapshot rollback' => sub {
         $conf->{snapshots}->{old}->{meta},
         "ctime=1,rtime=5,uid=$foreign_uid",
         'snapshot is unchanged',
+    );
+};
+
+subtest 'create and lock config' => sub {
+    my $class = 'PVE::TestConfig';
+
+    my $state = $class->create_and_lock_config(150);
+    my $reserved = identity_of($class, 150);
+    ok($reserved, 'free VMID: reservation gets an identity');
+    is_deeply(
+        $state,
+        { existed => 0, previous => undef, assigned => $reserved },
+        'free VMID: no previous identity',
+    );
+    is(conf_of($class, 150)->{lock}, 'create', 'free VMID: reserved');
+
+    eval { $class->create_and_lock_config(150) };
+    like($@, qr/already exists/, 'existing config is refused by default');
+
+    $class->write_config(151, { name => 'target', meta => 'ctime=1' });
+    my $stored = identity_of($class, 151);
+    $now += 1000;
+    $state = $class->create_and_lock_config(151, 1, 'restore');
+    is_deeply(
+        $state,
+        { existed => 1, previous => $stored, assigned => $stored },
+        'in place: previous identity',
+    );
+    my $conf = conf_of($class, 151);
+    is($conf->{lock}, 'restore', 'in place: locked');
+    is($conf->{name}, 'target', 'in place: config is kept');
+    is_deeply(identity_of($class, 151), $stored, 'in place: identity is kept');
+
+    eval { $class->create_and_lock_config(151, 1) };
+    like($@, qr/^VM is locked \(restore\)/, 'locked config is refused');
+
+    eval { $class->create_and_lock_config(159, 'require') };
+    like($@, qr/^Configuration file '.*' does not exist/,
+        'required config is missing: refused');
+    ok(!defined(file_of($class, 159)), 'required config is missing: nothing is written');
+
+    set_file($class, 152, "meta: ctime=1\nname: old\n");
+    $state = $class->create_and_lock_config(152, 1);
+    is_deeply(
+        $state,
+        { existed => 1, previous => undef, assigned => identity_of($class, 152) },
+        'in place without identity: reservation gets one',
+    );
+    ok($state->{assigned}, 'in place without identity: reserved identity');
+
+    set_file($class, 157, '');
+    $state = $class->create_and_lock_config(157, 1);
+    is_deeply(
+        $state,
+        { existed => 1, previous => undef, assigned => identity_of($class, 157) },
+        'in place with empty config: reservation gets an identity',
+    );
+    ok($state->{assigned}, 'in place with empty config: reserved identity');
+
+    my $unloadable = "lock: backup\nmeta: rtime=5,uid=$foreign_uid\nname: old\n!unparsable\n";
+    set_file($class, 156, $unloadable);
+    eval { $class->create_and_lock_config(156, 1) };
+    like($@, qr/^test error: unable to parse/, 'in place, config fails to load: refused');
+    is(file_of($class, 156), $unloadable, 'in place, config fails to load: file is unchanged');
+
+    # the guest list of the process can predate a config created since
+    my $check_vmid_unused = PVE::Cluster->can('check_vmid_unused');
+    $cluster_module->redefine(check_vmid_unused => sub { return 1; });
+    for my $raw ("name: other\n", $unloadable) {
+        set_file($class, 158, $raw);
+        eval { $class->create_and_lock_config(158) };
+        is($@, "VM 158 already exists\n", 'outdated guest list: existing config is refused');
+        is(file_of($class, 158), $raw, 'outdated guest list: file is unchanged');
+    }
+    $cluster_module->redefine(check_vmid_unused => $check_vmid_unused);
+
+    # clone: the target's first write must not store the source's identity
+    $state = $class->create_and_lock_config(153);
+    $conf = conf_of($class, 151);
+    delete $conf->{lock};
+    $class->write_config(153, $conf);
+    is_deeply(identity_of($class, 153), $state->{assigned},
+        'clone keeps the reserved identity');
+    like(file_of($class, 153), qr/^meta: ctime=1,/m, 'clone keeps other members of the source');
+
+    $class = 'PVE::TestConfig::NoIdentity';
+
+    $state = $class->create_and_lock_config(154);
+    is_deeply(
+        $state,
+        { existed => 0, previous => undef, assigned => undef },
+        'disabled, free VMID: no previous identity',
+    );
+    is(file_of($class, 154), "lock: create\n", 'disabled, free VMID: no identity assigned');
+
+    set_file($class, 155, "meta: ctime=1,rtime=5,uid=$foreign_uid\nname: old\n");
+    $state = $class->create_and_lock_config(155, 1);
+    is_deeply(
+        $state,
+        { existed => 1, previous => { uid => $foreign_uid, rtime => 5 }, assigned => undef },
+        'disabled, in place: identity from the config',
+    );
+    is(
+        file_of($class, 155),
+        "lock: create\nmeta: ctime=1,rtime=5,uid=$foreign_uid\nname: old\n",
+        'disabled, in place: config is kept',
     );
 };
 
