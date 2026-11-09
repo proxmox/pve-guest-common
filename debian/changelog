@@ -1,3 +1,10 @@
+libpve-guest-common-perl (6.0.8) trixie; urgency=medium
+
+  * fix #5713: vzdump: add notification-mode none to common backup job
+    properties.
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 09 Nov 2026 19:27:39 +0100
+
 libpve-guest-common-perl (6.0.7) trixie; urgency=medium
 
   * fix #7408: hookscripts: activate the storage of a hookscript before checking
