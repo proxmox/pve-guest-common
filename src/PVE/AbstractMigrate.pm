@@ -276,6 +276,42 @@ sub prepare_local_cluster_checks {
     eval { $self->cmd_quiet($cmd); };
     die "Can't connect to destination address using public key\n" if $@;
 
+    my $nodename = PVE::INotify::nodename();
+
+    # Only proceed if the 'skip-config-check' flag exists, so a user can opt-out.
+    if (!PVE::Cluster::node_pvecfg_version_at_least($nodename, 9, 2, 31)) {
+        $self->log('info', "skipping config check - local pve-manager version < 9.2.31");
+        return;
+    }
+
+    if (!$self->{opts}->{'skip-config-check'}) {
+        if (PVE::Cluster::node_pvecfg_version_at_least($self->{node}, 9, 2, 31)) {
+            # Fork a short-lived tunnel only for checking the config.
+            my $tunnel = $self->fork_tunnel();
+            # Compared to remote migration, which also does volume activation, this only
+            # strictly parses the config, so a long timeout is unnecessary.
+            eval { PVE::Tunnel::write_tunnel($tunnel, 30, "config $self->{vmid} $nodename"); };
+            my $err = $@;
+
+            eval { PVE::Tunnel::finish_tunnel($tunnel); };
+            if (my $finish_err = $@) {
+                # The signal handler dies on a stop request, which must abort the migration.
+                die $finish_err if $finish_err =~ m/interrupted by signal/;
+                $self->log('warn', "failed to finish tunnel for config check - $finish_err");
+            }
+
+            if ($err) {
+                die $err if $err =~ m/interrupted by signal/;
+                chomp($err);
+                die "$err - use 'skip-config-check' flag to migrate regardless\n";
+            }
+        } else {
+            $self->log('info', "skipping config check - target pve-manager version < 9.2.31");
+        }
+    } else {
+        $self->log('info', "skipping config check - override option is set");
+    }
+
     return;
 }
 
