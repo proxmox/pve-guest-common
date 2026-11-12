@@ -256,6 +256,12 @@ sub migrate {
     $self->log('info', "migration finished successfully (duration $duration)");
 }
 
+sub fork_tunnel {
+    my ($self, $ssh_forward_info) = @_;
+
+    die "abstract method - implement me";
+}
+
 sub lock_vm {
     my ($self, $vmid, $code, @param) = @_;
 
