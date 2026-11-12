@@ -268,6 +268,17 @@ sub lock_vm {
     die "abstract method - implement me";
 }
 
+sub prepare_local_cluster_checks {
+    my ($self) = @_;
+
+    # test ssh connection
+    my $cmd = [@{ $self->{rem_ssh} }, '/bin/true'];
+    eval { $self->cmd_quiet($cmd); };
+    die "Can't connect to destination address using public key\n" if $@;
+
+    return;
+}
+
 sub prepare {
     my ($self, $vmid) = @_;
 
