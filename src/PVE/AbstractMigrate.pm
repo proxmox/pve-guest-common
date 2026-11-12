@@ -8,9 +8,15 @@ use POSIX qw(strftime);
 
 use PVE::Cluster;
 use PVE::DataCenterConfig;
-use PVE::ReplicationState;
+use PVE::INotify;
+use PVE::JSONSchema;
 use PVE::SSHInfo;
+use PVE::Storage;
 use PVE::Tools;
+
+use PVE::ReplicationConfig;
+use PVE::ReplicationState;
+use PVE::Tunnel;
 
 my $msg2text = sub {
     my ($level, $msg) = @_;
