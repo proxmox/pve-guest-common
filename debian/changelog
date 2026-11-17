@@ -1,3 +1,23 @@
+libpve-guest-common-perl (6.0.9) trixie; urgency=medium
+
+  * next-id: record previously used guest IDs in the
+    'virtual-guest/used-guest-ids' cluster file for supporting the new 'unique'
+    and 'enforce' datacenter config options. With 'unique', the /cluster/nextid
+    API skips such IDs when suggesting the next free one. With 'enforce', IDs
+    for new guests outside of explicitly configured 'lower' and 'upper'
+    boundaries get rejected, and with 'unique' also previously used IDs.
+
+  * abstract config: register used guest ID when creating config.
+
+  * next-id: keep 'virtual-guest/used-guest-ids' file below the pmxcfs file
+    size limit. If there are too many non-adjacent ranges, the file could grow
+    larger than 1 MiB, so add two thresholds: the first at 512 KiB, at which
+    users are warned that some still available IDs might be dropped in the
+    future to allow merging ranges, and the second at 768 KiB, at which this
+    merging actually happens.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 17 Nov 2026 11:43:56 +0100
+
 libpve-guest-common-perl (6.0.8) trixie; urgency=medium
 
   * fix #5713: vzdump: add notification-mode none to common backup job
