@@ -1132,7 +1132,8 @@ my $rollback_remove_replication_snapshots = sub {
 
 # Rolls back to a given snapshot.
 sub snapshot_rollback {
-    my ($class, $vmid, $snapname) = @_;
+    my ($class, $vmid, $snapname, $vm_start_opts) = @_;
+    $vm_start_opts //= {};
 
     my $prepare = 1;
 
@@ -1204,7 +1205,9 @@ sub snapshot_rollback {
         $class->write_config($vmid, $conf);
 
         if (!$prepare && $snap->{vmstate}) {
-            $class->__snapshot_rollback_vm_start($vmid, $snap->{vmstate}, $data);
+            $class->__snapshot_rollback_vm_start(
+                $vmid, $snap->{vmstate}, $data, $vm_start_opts,
+            );
         }
     };
 
