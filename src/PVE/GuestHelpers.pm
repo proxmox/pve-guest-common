@@ -481,4 +481,37 @@ sub abort_guest_tasks {
     return $aborted_tasks;
 }
 
+our $firewall_config_dir = '/etc/pve/firewall';
+
+# Returns the raw firewall config of the guest $vmid, undef if it has none. Together with
+# set_firewall_config_raw, this lets an operation that can replace the firewall config, like a
+# restore, put back what was there if it fails. The caller must hold the config lock of the guest.
+sub get_firewall_config_raw {
+    my ($vmid) = @_;
+
+    my $path = "$firewall_config_dir/$vmid.fw";
+    open(my $fh, '<', $path) or do {
+        return undef if $!{ENOENT};
+        die "unable to open '$path' - $!\n";
+    };
+
+    return PVE::Tools::safe_read_from($fh, 0, 0, $path);
+}
+
+# Writes $raw as firewall config of the guest $vmid, or removes the config if $raw is undef. The
+# caller must hold the config lock of the guest.
+sub set_firewall_config_raw {
+    my ($vmid, $raw) = @_;
+
+    my $path = "$firewall_config_dir/$vmid.fw";
+    if (defined($raw)) {
+        mkdir $firewall_config_dir;
+        PVE::Tools::file_set_contents($path, $raw);
+    } else {
+        unlink($path) or $!{ENOENT} or die "unable to remove '$path' - $!\n";
+    }
+
+    return;
+}
+
 1;
