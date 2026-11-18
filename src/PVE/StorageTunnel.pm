@@ -6,6 +6,7 @@ use warnings;
 use IO::Socket::UNIX;
 use POSIX qw(WNOHANG);
 use Socket qw(SOCK_STREAM);
+use Time::HiRes;
 
 use PVE::JSONSchema;
 use PVE::Storage;
@@ -314,6 +315,27 @@ sub handle_query_disk_import {
             msg => $result,
         };
     }
+}
+
+# Waits up to $timeout seconds, 60 by default, for the disk import of the tunnel state $state to end
+# and collects it with handle_query_disk_import, which records its volume for the cleanup. Stops
+# waiting if a query fails. Dies if the import still runs then.
+sub wait_for_disk_import {
+    my ($state, $timeout) = @_;
+
+    my $deadline = Time::HiRes::time() + ($timeout // 60);
+    while ($state->{disk_import} && Time::HiRes::time() < $deadline) {
+        eval { handle_query_disk_import($state, {}) };
+        if (my $err = $@) {
+            warn $err;
+            last;
+        }
+        # a query returns at once while an import that closed its output has not exited yet
+        Time::HiRes::usleep(100_000) if $state->{disk_import};
+    }
+    die "a volume transfer is still running\n" if $state->{disk_import};
+
+    return;
 }
 
 sub handle_bwlimit {
