@@ -1,3 +1,23 @@
+libpve-guest-common-perl (6.0.10) trixie; urgency=medium
+
+  * abstract config: when reserving a guest ID, check again under the config
+    lock that no guest with that ID exists, unless the caller allows an
+    existing one. The earlier check uses the guest list of the process, which
+    can be outdated, for example if a create or restore of the same ID just
+    finished.
+
+  * snapshot rollback: allow passing options to the start of the guest, which
+    qemu-server uses to override the guest time sync for a single rollback.
+
+  * migration: before an intra-cluster migration, check that the target node
+    can parse the guest config, as already done for remote migrations. This
+    prevents an outdated target from dropping or ignoring settings it does not
+    know yet, like a new option of an existing property. The check needs
+    pve-manager 9.2.31 or newer on both nodes and can be skipped with the new
+    'skip-config-check' migration option of qemu-server and pve-container.
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 18 Nov 2026 14:35:24 +0100
+
 libpve-guest-common-perl (6.0.9) trixie; urgency=medium
 
   * next-id: record previously used guest IDs in the
