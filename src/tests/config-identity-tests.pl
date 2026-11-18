@@ -10,7 +10,9 @@ use Test::MockModule;
 use Test::More;
 
 use PVE::AbstractConfig;
+use PVE::AbstractMigrate;
 use PVE::GuestIdentity;
+use PVE::JSONSchema;
 
 my $tmpdir = tempdir('config-identity-XXXXXX', DIR => '.', CLEANUP => 1);
 
@@ -1090,6 +1092,250 @@ subtest 'drop pending meta' => sub {
         );
         is($warnings, $expected_warning, "$name: warning");
     }
+};
+
+# Runs $code with the output to STDOUT captured, returns the error and the output.
+my sub capture_output($code) {
+    my $output = '';
+    open(my $fh, '>', \$output) or die "unable to capture output - $!\n";
+    my $previous_fh = select($fh);
+    eval { $code->() };
+    my $err = $@;
+    select($previous_fh);
+    close($fh);
+
+    return ($err, $output);
+}
+
+subtest 'tunnel identity command on the target' => sub {
+    my $class = 'PVE::TestConfig';
+
+    # validates the parameters like the tunnel endpoints do, returns the error, output and reply
+    my $handle = sub($state, $reservation, $params) {
+        my $schema = {
+            type => 'object',
+            properties => PVE::GuestIdentity::tunnel_identity_cmd_schema(),
+            additionalProperties => 0,
+        };
+        my $reply;
+        my ($err, $output) = capture_output(sub {
+            PVE::JSONSchema::validate($params, $schema);
+            $reply =
+                PVE::GuestIdentity::handle_tunnel_identity($class, $state, $reservation, $params);
+        });
+        return ($err, $output, $reply);
+    };
+    my $once = "the uid can only be adopted once, before the config arrives\n";
+
+    my $uid = new_uid();
+    my $reservation = $class->create_and_lock_config(600);
+    my $state = { vmid => 600, lock => 'create' };
+    my ($err, $output, $reply) = $handle->($state, $reservation, { uid => $uid });
+    is($err, '', 'free uid: accepted');
+    is_deeply(
+        $reply,
+        { identity => { result => 'adopted', uid => $uid, requested => $uid } },
+        'free uid: reply',
+    );
+    is($output, "guest identity: adopted uid $uid from the source guest\n", 'free uid: logged');
+    is(identity_of($class, 600)->{uid}, $uid, 'free uid: stored');
+
+    ($err) = $handle->($state, $reservation, { uid => new_uid() });
+    is($err, $once, 'second command is refused');
+    is(identity_of($class, 600)->{uid}, $uid, 'second command: uid is unchanged');
+
+    $reservation = $class->create_and_lock_config(601);
+    my $reserved = identity_of($class, 601);
+    ($err) = $handle->({ vmid => 601, lock => 'migrate' }, $reservation, { uid => new_uid() });
+    is($err, $once, 'command after the config is refused');
+    is_deeply(identity_of($class, 601), $reserved, 'after the config: identity is kept');
+
+    ($err, $output) =
+        $handle->({ vmid => 601, lock => 'create' }, $reservation, { uid => $uid });
+    is(
+        $err,
+        "guest 600 in the target cluster already has the uid '$uid' of this guest - use"
+            . " 'allow-new-uid' to migrate it with a new uid\n",
+        'uid in use: refused',
+    );
+    is($output, '', 'uid in use: no result logged');
+    is_deeply(identity_of($class, 601), $reserved, 'uid in use: reserved identity stays');
+
+    ($err, $output, $reply) = $handle->(
+        { vmid => 601, lock => 'create' },
+        $reservation,
+        { uid => $uid, 'allow-new-uid' => 1 },
+    );
+    is($err, '', 'uid in use with allow-new-uid: accepted');
+    is_deeply(
+        $reply,
+        {
+            identity => {
+                result => 'in-use',
+                uid => $reserved->{uid},
+                requested => $uid,
+                'in-use-by' => 600,
+            },
+        },
+        'uid in use with allow-new-uid: reply',
+    );
+    is(
+        $output,
+        "guest identity: source guest uid $uid is in use by guest 600, keeping uid"
+            . " $reserved->{uid}\n",
+        'uid in use with allow-new-uid: logged',
+    );
+    is_deeply(identity_of($class, 601), $reserved, 'uid in use with allow-new-uid: kept');
+
+    $reservation = $class->create_and_lock_config(602);
+    {
+        local $lock_domain_error = "cfs-lock 'domain-guest-identity' error: no quorum!\n";
+        ($err) =
+            $handle->({ vmid => 602, lock => 'create' }, $reservation, { uid => new_uid() });
+    }
+    is(
+        $err,
+        "unable to adopt the uid of the source guest - cfs-lock 'domain-guest-identity' error:"
+            . " no quorum!\n",
+        'lock error is passed on',
+    );
+
+    # what the 'config' command logs if no 'identity' command came before it
+    $reservation = $class->create_and_lock_config(604);
+    $state = { vmid => 604, lock => 'create' };
+    my $log_not_sent =
+        sub { PVE::GuestIdentity::log_tunnel_identity_not_sent($state, $reservation) };
+    (undef, $output) = capture_output($log_not_sent);
+    my $assigned = $reservation->{assigned}->{uid};
+    like(
+        $output,
+        qr/^guest identity: the source sent no uid, .* has the new uid $assigned\n/,
+        'no identity command: the new uid is logged',
+    );
+    like($output, qr/ migration back there gets refused\n$/, 'and the consequence');
+    $handle->($state, $reservation, { uid => new_uid() });
+    (undef, $output) = capture_output($log_not_sent);
+    is($output, '', 'after an identity command: nothing is logged');
+
+    $reservation = $class->create_and_lock_config(603);
+    ($err) = $handle->({ vmid => 603, lock => 'create' }, $reservation, {});
+    like($err, qr/^uid: property is missing/m, 'missing uid is refused');
+    ($err) =
+        $handle->({ vmid => 603, lock => 'create' }, $reservation, { uid => $uid, x => 1 });
+    like($err, qr/^x: property is not defined in schema/m, 'unknown parameter is refused');
+
+    delete PVE::GuestIdentity::tunnel_identity_cmd_schema()->{uid};
+    ok(PVE::GuestIdentity::tunnel_identity_cmd_schema()->{uid}, 'schema is a new copy');
+
+    my $option = PVE::JSONSchema::get_standard_option('pve-guest-allow-new-uid');
+    is($option->{type}, 'boolean', 'the override is a standard option');
+};
+
+subtest 'tunnel identity command on the source' => sub {
+    my $class = 'PVE::TestConfig';
+
+    my $tunnel = { version => 3 };
+    my ($commands, $reply);
+    local *PVE::Tunnel::write_tunnel = sub {
+        my ($used_tunnel, $timeout, $command, $params) = @_;
+        push $commands->@*, [$used_tunnel, $timeout, $command, $params];
+        die $reply if !ref($reply);
+        return $reply;
+    };
+
+    # like the migration of the guest $vmid with the options $opts after its preparation loaded
+    # the config
+    my $migration = sub($vmid, $opts = {}) {
+        PVE::Cluster::cfs_update();
+        my $conf = $class->load_config($vmid);
+        return bless { vmid => $vmid, vmconf => $conf, opts => $opts }, 'PVE::AbstractMigrate';
+    };
+    # returns the error, the output, and the sent parameters
+    my $send = sub($name, $migrate) {
+        $commands = [];
+        my ($err, $output) =
+            capture_output(sub { $migrate->adopt_identity_on_target($class, $tunnel) });
+        my @sent = map { [$_->@[0 .. 2]] } $commands->@*;
+        is_deeply(\@sent, [[$tunnel, 60, 'identity']], "$name: one command, up to a minute");
+        return ($err, $output, $commands->[0]->[3]);
+    };
+
+    $class->write_config(610, { name => 'source' });
+    my $source = identity_of($class, 610);
+    $reply =
+        { identity => { result => 'adopted', uid => $source->{uid}, requested => $source->{uid} } };
+    my $writes_before = $writes;
+    my ($err, $output, $params) = $send->('source with uid', $migration->(610));
+    is($err, '', 'source with uid: no error');
+    is_deeply($params, { uid => $source->{uid}, 'allow-new-uid' => 0 },
+        'source with uid: sent');
+    is($writes, $writes_before, 'source with uid: nothing is written');
+    like(
+        $output,
+        qr/^\S+ \S+ guest identity: the migrated guest keeps uid $source->{uid}\n\z/,
+        'source with uid: result is logged',
+    );
+
+    $reply = {
+        identity => {
+            result => 'in-use',
+            uid => 'targettargettargetta',
+            requested => $source->{uid},
+            'in-use-by' => 7,
+        },
+    };
+    ($err, $output, $params) =
+        $send->('allow-new-uid', $migration->(610, { 'allow-new-uid' => 1 }));
+    is($params->{'allow-new-uid'}, 1, 'allow-new-uid is sent');
+    my $line =
+        "guest identity: guest 7 in the target cluster has uid $source->{uid}, the migrated"
+        . " guest gets the new uid targettargettargetta";
+    like($output, qr/^\S+ \S+ \Q$line\E\n\z/, 'uid in use on the target: result is logged');
+
+    set_file($class, 611, "name: source\n");
+    my $migrate = $migration->(611);
+    $reply = { success => 1 };
+    $writes_before = $writes;
+    ($err, $output, $params) = $send->('source without uid', $migrate);
+    my $assigned = identity_of($class, 611);
+    ok($assigned, 'source without uid: gets one');
+    is($writes, $writes_before + 1, 'source without uid: written once');
+    is($params->{uid}, $assigned->{uid}, 'source without uid: sends the uid it got');
+    is_deeply(
+        $class->get_identity($migrate->{vmconf}),
+        $assigned,
+        'source without uid: loaded config has it',
+    );
+    is($output, '', 'source without uid: reply without result is not logged');
+
+    my $stored_uid = new_uid();
+    set_file($class, 612, "meta: ctime=1,rtime=5,uid=$stored_uid\nname: source\n");
+    $migrate = $migration->(612);
+    # like a parser that drops a 'meta' property with a member it does not know
+    delete $migrate->{vmconf}->{meta};
+    ($err, $output, $params) = $send->('stored uid only', $migrate);
+    is(
+        $params->{uid}, $stored_uid, 'stored uid only: sends the stored uid',
+    );
+    is_deeply(
+        identity_of($class, 612),
+        { uid => $stored_uid, rtime => 5 },
+        'stored uid only: stored identity is kept',
+    );
+
+    $reply =
+        { identity => { result => 'future', uid => $stored_uid, requested => $stored_uid } };
+    ($err, $output) = $send->('unknown result', $migration->(612));
+    is($err, '', 'unknown result: no error');
+    like(
+        $output,
+        qr/ guest identity: unknown result 'future' of the target$/m,
+        'unknown result: warning',
+    );
+
+    $reply = "error - tunnel command 'identity' failed - refused\n";
+    ($err, $output) = $send->('failed command', $migration->(612));
+    is($err, $reply, 'failed command: error is passed on');
 };
 
 done_testing();

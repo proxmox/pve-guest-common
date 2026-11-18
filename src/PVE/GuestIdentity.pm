@@ -389,6 +389,72 @@ sub adopt_from_backup($class, $vmid, $uid, $reservation) {
     return;
 }
 
+PVE::JSONSchema::register_standard_option(
+    'pve-guest-allow-new-uid',
+    {
+        type => 'boolean',
+        description => "Allow the migration if another guest in the target cluster already has the"
+            . " uid of this guest. The migrated guest then gets a new uid.",
+        optional => 1,
+        default => 0,
+    },
+);
+
+# Returns the properties of the parameters of the 'identity' command of the migration tunnel, see
+# handle_tunnel_identity. Every call returns a new copy.
+sub tunnel_identity_cmd_schema() {
+    return {
+        uid => {
+            type => 'string',
+            description => 'uid of the source guest',
+        },
+        'allow-new-uid' => PVE::JSONSchema::get_standard_option('pve-guest-allow-new-uid'),
+    };
+}
+
+# Handles the 'identity' command with the parameters $params on the target of a remote migration of
+# a guest of the config class $class: adopts the uid of the source guest for the guest that the
+# tunnel reserved with $reservation, logs the result, and returns the reply for the source. $state
+# is the state of the tunnel, with the VMID in 'vmid' and the lock of the guest in 'lock'.
+#
+# The command is only accepted once, and only before the config arrives, while the guest still has
+# the 'create' lock of the reservation. If another guest in the cluster has the uid, the command
+# fails, which refuses the migration, unless the parameter 'allow-new-uid' is set, in which case the
+# guest keeps the uid of its reservation.
+sub handle_tunnel_identity($class, $state, $reservation, $params) {
+    die "the uid can only be adopted once, before the config arrives\n"
+        if ($state->{lock} // '') ne 'create' || $state->{'identity-handled'};
+    $state->{'identity-handled'} = 1;
+
+    my $uid = $params->{uid};
+    my $res = eval { adopt($class, $state->{vmid}, $uid, $reservation) };
+    die "unable to adopt the uid of the source guest - $@" if $@;
+
+    if ($res->{result} eq 'in-use' && !$params->{'allow-new-uid'}) {
+        die "guest $res->{'in-use-by'} in the target cluster already has the uid '$uid' of this"
+            . " guest - use 'allow-new-uid' to migrate it with a new uid\n";
+    }
+
+    print adopt_result_message($res, 'source guest') . "\n";
+
+    return { identity => $res };
+}
+
+# For the 'config' command on the target of a remote migration, with the state $state of the
+# tunnel and the reservation $reservation of the guest: logs that the guest got a new uid if the
+# source did not send the 'identity' command. Only a source without guest identities sends no
+# 'identity' command, and a migration back to such a cluster gets refused.
+sub log_tunnel_identity_not_sent($state, $reservation) {
+    return if $state->{'identity-handled'};
+
+    my $uid = $reservation->{assigned}->{uid};
+    print "guest identity: the source sent no uid, the migrated guest has the new uid $uid\n";
+    print "guest identity: the source cluster does not support guest identities yet, so a"
+        . " migration back there gets refused\n";
+
+    return;
+}
+
 # Returns undef if $node runs a version of Proxmox VE that keeps the identity when writing guest
 # configs, see MIN_PVE_MANAGER_VERSION. Missing or invalid version information counts as too old.
 # Otherwise returns a hash with 'required-version', the minimum version, and 'version', the version

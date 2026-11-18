@@ -443,6 +443,48 @@ sub get_bwlimit {
     return $bwlimit;
 }
 
+# Lets the target of a remote migration adopt the uid of the guest, whose config class is
+# $config_class, through the tunnel $tunnel, before anything gets transferred there. The target
+# refuses a uid that another guest there has, unless the migration allows a new uid, see
+# PVE::GuestIdentity::handle_tunnel_identity. Call it only after the version check of the tunnel,
+# so that a target refused by that check leaves the config of the source unchanged.
+sub adopt_identity_on_target {
+    my ($self, $config_class, $tunnel) = @_;
+
+    my $conf = $self->{vmconf};
+    my $identity = $config_class->get_identity($conf);
+    if (!$identity) {
+        # A guest without uid gets one first, so the source keeps the uid that it sends. The write
+        # also restores a stored uid that the parser of the guest type dropped.
+        $config_class->write_config($self->{vmid}, $conf);
+        $identity = $config_class->get_identity($conf) or return;
+    }
+    my $uid = $identity->{uid};
+
+    my $params = { uid => $uid, 'allow-new-uid' => $self->{opts}->{'allow-new-uid'} ? 1 : 0 };
+
+    # the target waits for the cluster-wide guest identity lock
+    my $res = PVE::Tunnel::write_tunnel($tunnel, 60, 'identity', $params);
+    my $reply = $res->{identity} or return;
+
+    # the guest here keeps its uid in any case, the result is about the guest on the target
+    my $result = $reply->{result} // '';
+    if ($result eq 'adopted' || $result eq 'kept') {
+        $self->log('info', "guest identity: the migrated guest keeps uid $uid");
+    } elsif ($result eq 'in-use') {
+        $self->log(
+            'info',
+            "guest identity: guest $reply->{'in-use-by'} in the target cluster has uid $uid, the"
+                . " migrated guest gets the new uid $reply->{uid}",
+        );
+    } else {
+        # only a newer target reports another result; the command succeeded, so it accepted the uid
+        $self->log('warn', "guest identity: unknown result '$result' of the target");
+    }
+
+    return;
+}
+
 sub map_storage {
     my ($self, $scfg, $storeid) = @_;
 
