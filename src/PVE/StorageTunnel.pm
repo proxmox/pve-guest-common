@@ -205,8 +205,10 @@ our $cmd_schema = {
 sub handle_disk_import {
     my ($state, $params) = @_;
 
-    die "disk import already running as PID '$state->{disk_import}->{pid}'\n"
-        if $state->{disk_import}->{pid};
+    # no autovivification, callers take an existing entry as a running import
+    if (my $import = $state->{disk_import}) {
+        die "disk import already running as PID '$import->{pid}'\n" if $import->{pid};
+    }
 
     my $storage = delete $params->{storage};
     my $format = delete $params->{format};
@@ -233,8 +235,9 @@ sub handle_disk_import {
 sub handle_query_disk_import {
     my ($state, $params) = @_;
 
-    die "no disk import running\n"
-        if !$state->{disk_import}->{pid};
+    # one reference throughout, so that nothing creates the entry again after removing it
+    my $import = $state->{disk_import};
+    die "no disk import running\n" if !$import || !$import->{pid};
 
     my $pattern = PVE::Storage::volume_imported_message(undef, 1);
 
@@ -244,7 +247,7 @@ sub handle_query_disk_import {
         my $line;
 
         eval {
-            my $fh = $state->{disk_import}->{fh};
+            my $fh = $import->{fh};
             PVE::Tools::run_with_timeout($timeout, sub { $line = <$fh>; });
             print "disk-import: $line\n" if $line;
         };
@@ -255,7 +258,7 @@ sub handle_query_disk_import {
     my $result = $read_output->(5);
 
     # attempted read empty or timeout, and process has exited already
-    if (!$result && waitpid($state->{disk_import}->{pid}, WNOHANG)) {
+    if (!$result && waitpid($import->{pid}, WNOHANG)) {
         my $msg = '';
 
         # read any missed output
@@ -267,7 +270,7 @@ sub handle_query_disk_import {
             }
         }
 
-        my $unix = $state->{disk_import}->{socket};
+        my $unix = $import->{socket};
         unlink $unix or $!{ENOENT} or warn "failed to unlink disk import socket – $!\n";
         delete $state->{sockets}->{$unix};
         delete $state->{disk_import};
@@ -283,9 +286,9 @@ sub handle_query_disk_import {
 
     if ($result && $result =~ $pattern) {
         my $volid = $1;
-        waitpid($state->{disk_import}->{pid}, 0);
+        waitpid($import->{pid}, 0);
 
-        my $unix = $state->{disk_import}->{socket};
+        my $unix = $import->{socket};
         unlink $unix or $!{ENOENT} or warn "failed to unlink disk import socket – $!\n";
         delete $state->{sockets}->{$unix};
         delete $state->{disk_import};
