@@ -253,6 +253,8 @@ sub load_current_config {
     return $conf;
 }
 
+# Reserves $vmid by writing its config with the lock $lock, 'create' by default. An existing config
+# is only allowed with $allow_existing, and required if that is 'require'.
 sub create_and_lock_config {
     my ($class, $vmid, $allow_existing, $lock) = @_;
 
@@ -265,9 +267,11 @@ sub create_and_lock_config {
             PVE::GuestID::register_used_id($vmid);
 
             my $conf = eval { $class->load_config($vmid) };
+            my $load_err = $@;
             # the guest list of check_vmid_unused can predate a config created since
             die $class->guest_type() . " $vmid already exists\n"
                 if defined($conf) && !$allow_existing;
+            die $load_err if !defined($conf) && ($allow_existing // '') eq 'require';
             $conf //= {};
             $class->check_lock($conf);
             $conf->{lock} = $lock // 'create';
