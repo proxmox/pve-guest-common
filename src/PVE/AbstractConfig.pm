@@ -280,6 +280,23 @@ sub create_and_lock_config {
     );
 }
 
+# Removes the config of $vmid if it still has the 'create' lock that create_and_lock_config wrote,
+# for an operation that failed before it changed the guest. Returns whether it removed the config.
+sub remove_unused_reservation {
+    my ($class, $vmid) = @_;
+
+    return $class->lock_config(
+        $vmid,
+        sub {
+            my $conf = $class->load_config($vmid);
+            return 0 if !$class->has_lock($conf, 'create');
+
+            $class->destroy_config($vmid);
+            return 1;
+        },
+    );
+}
+
 # destroys configuration, only applicable for configs owned by the callers node.
 # dies if removal fails, e.g., when inquorate.
 sub destroy_config {

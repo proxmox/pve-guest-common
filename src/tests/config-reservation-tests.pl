@@ -101,4 +101,21 @@ subtest 'create and lock config' => sub {
     ok(!defined(conf_of(104)), 'required config is missing: nothing is written');
 };
 
+subtest 'remove unused reservation' => sub {
+    $class->create_and_lock_config(110);
+    ok($class->remove_unused_reservation(110), 'reservation: removed');
+    ok(!defined(conf_of(110)), 'reservation: no config is left');
+
+    $class->write_config(111, { name => 'guest' });
+    ok(!$class->remove_unused_reservation(111), 'config without lock: kept');
+    is_deeply(conf_of(111), { name => 'guest' }, 'config without lock: unchanged');
+
+    $class->write_config(112, { name => 'guest', lock => 'backup' });
+    ok(!$class->remove_unused_reservation(112), 'config with another lock: kept');
+    is_deeply(conf_of(112), { name => 'guest', lock => 'backup' }, 'other lock: unchanged');
+
+    eval { $class->remove_unused_reservation(113) };
+    like($@, qr/^Configuration file '113.conf' does not exist/, 'no config: error');
+};
+
 done_testing();
