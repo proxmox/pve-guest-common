@@ -264,7 +264,11 @@ sub create_and_lock_config {
 
             PVE::GuestID::register_used_id($vmid);
 
-            my $conf = eval { $class->load_config($vmid) } || {};
+            my $conf = eval { $class->load_config($vmid) };
+            # the guest list of check_vmid_unused can predate a config created since
+            die $class->guest_type() . " $vmid already exists\n"
+                if defined($conf) && !$allow_existing;
+            $conf //= {};
             $class->check_lock($conf);
             $conf->{lock} = $lock // 'create';
             $class->write_config($vmid, $conf);
