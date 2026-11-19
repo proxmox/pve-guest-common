@@ -1,3 +1,29 @@
+libpve-guest-common-perl (6.0.11) trixie; urgency=medium
+
+  * storage tunnel: do not treat a disk import that failed to start as a running
+    one. If the tunnel of a remote migration then ended early, the cleanup on
+    the target got skipped and the guest ID stayed reserved there.
+
+  * abstract config:
+    - allow an operation that reserves a guest ID to require that the guest
+      exists. A restore over an existing guest only needs the backup permission
+      on it. If the guest got removed just before the restore reserved the ID,
+      the restore created a new guest, which that permission does not allow.
+    - add a helper that removes the reservation of a guest ID again, for an
+      operation that failed before it changed anything. It only does so while
+      the config still has the lock of the reservation, as the config may be in
+      use otherwise.
+    - allow running code under the config lock of a guest only if the lock is
+      free, without waiting for it. The post-stop hook of a container needs this
+      to change the config safely, as a task that stops the container can hold
+      the lock until the hook is done.
+
+  * guest helpers: add helpers to read the firewall config of a guest and to put
+    it back. A failed restore can then bring back the firewall config from
+    before the restore, also one that existed for an ID without a guest.
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 19 Nov 2026 16:12:57 +0100
+
 libpve-guest-common-perl (6.0.10) trixie; urgency=medium
 
   * abstract config: when reserving a guest ID, check again under the config
