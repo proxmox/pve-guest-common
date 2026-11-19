@@ -361,6 +361,25 @@ sub lock_config {
     return $class->lock_config_full($vmid, 10, $code, @param);
 }
 
+# Like lock_config, but does not wait for the flock. Returns 1 if the lock was free, or held by
+# this process already, and $code ran under it. Returns 0, without running $code, if another
+# process holds the lock. The result of $code is not passed on. Dies if $code dies.
+sub try_lock_config {
+    my ($class, $vmid, $code, @param) = @_;
+
+    my $filename = $class->config_file_lock($vmid);
+
+    return PVE::Tools::try_lock_file(
+        $filename,
+        sub {
+            # make sure configuration file is up-to-date
+            PVE::Cluster::cfs_update();
+            $code->(@_);
+        },
+        @param,
+    );
+}
+
 # Checks whether the config is locked with the lock parameter
 sub check_lock {
     my ($class, $conf) = @_;

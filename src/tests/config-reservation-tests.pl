@@ -4,6 +4,7 @@ use v5.36;
 
 use lib qw(..);
 
+use Fcntl qw(:flock);
 use File::Temp qw(tempdir);
 use Storable qw(retrieve store);
 use Test::MockModule;
@@ -116,6 +117,35 @@ subtest 'remove unused reservation' => sub {
 
     eval { $class->remove_unused_reservation(113) };
     like($@, qr/^Configuration file '113.conf' does not exist/, 'no config: error');
+};
+
+subtest 'try_lock_config only runs the code if the lock is free' => sub {
+    my $ran = [];
+    my $code = sub(@param) { push @$ran, [@param] };
+
+    is($class->try_lock_config(120, $code, 'a', 'b'), 1, 'free lock: reported as taken');
+    is_deeply($ran, [['a', 'b']], 'free lock: code ran with its parameters');
+
+    $class->lock_config(
+        120,
+        sub { is($class->try_lock_config(120, $code), 1, 'nested: taken') },
+    );
+    is(scalar(@$ran), 2, 'nested in a lock of this process: code ran');
+
+    eval {
+        $class->try_lock_config(120, sub { die "code failed\n" });
+    };
+    is($@, "code failed\n", 'error of the code is passed on');
+
+    # like another process, a handle of its own conflicts with the lock of this process
+    open(my $other, '>>', $class->config_file_lock(120))
+        or die "unable to open lock file - $!\n";
+    flock($other, LOCK_EX) or die "unable to lock - $!\n";
+    is($class->try_lock_config(120, $code), 0, 'lock held elsewhere: reported as not taken');
+    is(scalar(@$ran), 2, 'lock held elsewhere: code did not run');
+    close($other);
+
+    is($class->try_lock_config(120, $code), 1, 'lock released: taken again');
 };
 
 done_testing();
