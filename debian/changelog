@@ -1,3 +1,26 @@
+libpve-guest-common-perl (6.0.12) trixie; urgency=medium
+
+  * guest identity: add the common code for the new identity of VMs and
+    containers, a random 'uid' and a registration time in the read-only 'meta'
+    property of the guest config. A VMID can be reused for another guest, and a
+    guest can get another VMID through a restore or a remote migration, so tools
+    like backup software could not tell whether they still see the same guest.
+    - every config write keeps the identity of a guest, or assigns one to a
+      guest without identity. qemu-server and pve-container enable this for
+      their guests.
+    - a restore or a remote migration can adopt the uid of the backup or of the
+      source guest, if no other guest in the cluster has it.
+    - add the 'allow-identity-mismatch' option for restoring a backup over a
+      guest with another uid, and the 'allow-new-uid' option for a remote
+      migration to a cluster where another guest has the uid.
+    - add the check that refuses a migration or clone to a node whose version
+      would drop the identity.
+
+  * vzdump: list the new 'uid' variable in the description of the backup notes
+    template.
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 19 Nov 2026 23:35:52 +0100
+
 libpve-guest-common-perl (6.0.11) trixie; urgency=medium
 
   * storage tunnel: do not treat a disk import that failed to start as a running
