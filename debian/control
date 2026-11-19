@@ -7,7 +7,7 @@ Build-Depends: debhelper-compat (= 13),
                libpve-common-perl (>= 9.2.12),
                libpve-storage-perl (>= 8.3.4),
                libtest-mockmodule-perl,
-               pve-cluster (>= 9.1.10),
+               pve-cluster (>= 9.1.11),
 Standards-Version: 4.6.2
 Homepage: https://www.proxmox.com
 
@@ -18,7 +18,7 @@ Depends: libpve-access-control,
          libpve-common-perl (>= 9.2.12),
          libpve-storage-perl (>= 8.3.4),
          proxmox-websocket-tunnel,
-         pve-cluster (>= 9.1.10),
+         pve-cluster (>= 9.1.11),
          ${misc:Depends},
          ${perl:Depends},
 Breaks: libpve-common-perl (<< 4.0-89),
