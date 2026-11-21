@@ -314,7 +314,14 @@ subtest 'node version check' => sub {
         is($unsupported, undef, "no reason for '$node'");
     }
 
-    for my $node (qw(older invalid missing malformed)) {
+    for my $node (qw(missing malformed)) {
+        eval { PVE::GuestIdentity::assert_node_supports_identity($node) };
+        is($@, '', "node '$node' without a readable version is not refused");
+        my $unsupported = PVE::GuestIdentity::node_identity_unsupported($node);
+        is($unsupported, undef, "no reason for '$node'");
+    }
+
+    for my $node (qw(older invalid)) {
         eval { PVE::GuestIdentity::assert_node_supports_identity($node) };
         like($@, qr/node '$node'/, "node '$node' is refused");
     }
@@ -325,7 +332,7 @@ subtest 'node version check' => sub {
         PVE::GuestIdentity::node_identity_unsupported_schema(),
         'schema is a new copy',
     );
-    for my $node (qw(older invalid missing malformed)) {
+    for my $node (qw(older invalid)) {
         my $unsupported = PVE::GuestIdentity::node_identity_unsupported($node);
         eval { PVE::JSONSchema::validate($unsupported, $schema) };
         is($@, '', "reason for '$node' matches the schema");
@@ -343,21 +350,6 @@ subtest 'node version check' => sub {
             "node '$node' runs Proxmox VE $versions->{$node}, keeping the guest identity requires"
                 . " $min or newer - upgrade the node first\n",
             "refusal of '$node' names both versions",
-        );
-    }
-
-    for my $node (qw(missing malformed)) {
-        is_deeply(
-            PVE::GuestIdentity::node_identity_unsupported($node),
-            { 'required-version' => $min },
-            "reason for '$node' has only the required version",
-        );
-        eval { PVE::GuestIdentity::assert_node_supports_identity($node) };
-        is(
-            $@,
-            "node '$node' does not report its Proxmox VE version, so it is unknown whether the"
-                . " node keeps the guest identity\n",
-            "refusal of '$node' says why",
         );
     }
 };

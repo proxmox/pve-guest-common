@@ -456,9 +456,8 @@ sub log_tunnel_identity_not_sent($state, $reservation) {
 }
 
 # Returns undef if $node runs a version of Proxmox VE that keeps the identity when writing guest
-# configs, see MIN_PVE_MANAGER_VERSION. Missing or invalid version information counts as too old.
-# Otherwise returns a hash with 'required-version', the minimum version, and 'version', the version
-# the node reports, if any.
+# configs, see MIN_PVE_MANAGER_VERSION, or if it reports no version. Otherwise returns a hash with
+# 'required-version', the minimum version, and 'version', the version the node reports.
 sub node_identity_unsupported($node) {
     my $required = MIN_PVE_MANAGER_VERSION;
     my ($major, $minor, $release) = split(/\./, $required);
@@ -467,9 +466,12 @@ sub node_identity_unsupported($node) {
         eval { PVE::Cluster::node_pvecfg_version_at_least($node, $major, $minor, $release) };
     return undef if $supported;
 
+    # Every node reports its version since Proxmox VE 7.1. A missing one has not arrived yet, for
+    # example right after the node joined the cluster, so it is no reason to refuse the node.
     my $version = eval { PVE::Cluster::get_node_pvecfg_version($node) };
+    return undef if !defined($version);
 
-    return { 'required-version' => $required, defined($version) ? (version => $version) : () };
+    return { 'required-version' => $required, version => $version };
 }
 
 # Returns the JSON schema of what node_identity_unsupported returns for a refused node, for the
@@ -478,15 +480,14 @@ sub node_identity_unsupported($node) {
 sub node_identity_unsupported_schema() {
     return {
         description =>
-            "Set if migrating to the node is refused because the node does not report a"
-            . " Proxmox VE version that keeps the guest identity.",
+            "Set if migrating to the node is refused because the node runs a Proxmox VE"
+            . " version that does not keep the guest identity.",
         type => 'object',
         optional => 1,
         properties => {
             version => {
                 description => "The Proxmox VE version the node reports.",
                 type => 'string',
-                optional => 1,
             },
             'required-version' => {
                 description => "The minimum Proxmox VE version that keeps the guest identity.",
@@ -501,11 +502,6 @@ sub node_identity_unsupported_schema() {
 sub assert_node_supports_identity($node) {
     my $unsupported = node_identity_unsupported($node) or return;
     my ($version, $required) = $unsupported->@{qw(version required-version)};
-
-    if (!defined($version)) {
-        die "node '$node' does not report its Proxmox VE version, so it is unknown whether the node"
-            . " keeps the guest identity\n";
-    }
 
     die "node '$node' runs Proxmox VE $version, keeping the guest identity requires $required or"
         . " newer - upgrade the node first\n";
