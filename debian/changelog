@@ -1,3 +1,12 @@
+libpve-guest-common-perl (6.0.13) trixie; urgency=medium
+
+  * guest identity: do not refuse a migration or clone to a node that has not
+    reported its Proxmox VE version yet, for example right after it joined the
+    cluster. Such migrations failed before, including HA migrations and those of
+    a node entering maintenance mode.
+
+ -- Proxmox Support Team <support@proxmox.com>  Sun, 22 Nov 2026 18:49:33 +0100
+
 libpve-guest-common-perl (6.0.12) trixie; urgency=medium
 
   * guest identity: add the common code for the new identity of VMs and
