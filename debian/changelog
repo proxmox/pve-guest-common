@@ -1,3 +1,11 @@
+libpve-guest-common-perl (6.0.15) trixie; urgency=medium
+
+  * config: add a check whether the config file of a guest stores a guest
+    identity, for the migration of VMs and containers to nodes that do not
+    keep identities.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 24 Nov 2026 10:31:49 +0100
+
 libpve-guest-common-perl (6.0.14) trixie; urgency=medium
 
   * config: do not assign a guest identity to a guest without one while its
