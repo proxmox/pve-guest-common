@@ -100,8 +100,9 @@ sub __identity_read_stored {
 # Generate and write config file for this VM/CT
 #
 # With guest identities enabled for the class, the identity stored in the existing config file
-# gets set in $conf, whatever $conf contains, or a new one if none is stored. So a config write
-# never changes the uid of a guest, only PVE::GuestIdentity::adopt does.
+# gets set in $conf, whatever $conf contains, or a new one if none is stored, unless $conf has the
+# migrate lock. So a config write never changes the uid of a guest, only PVE::GuestIdentity::adopt
+# does.
 #
 # Reading the stored identity and writing the config are two steps. As for any other change of a
 # config, the caller therefore has to hold the guest config lock, or own the guest through a lock
@@ -118,6 +119,22 @@ sub write_config {
 
     my $stored = $class->__identity_read_stored($vmid);
     my $identity = $stored ? $stored->{identity} : undef;
+
+    # A guest without identity gets none while it has the migrate lock. A migration target too old
+    # for identities cannot parse a 'meta' property with them and drops it, together with members
+    # like the creation QEMU version of a VM. The target removes the lock once the config is there,
+    # and a target that keeps identities assigns one with that write.
+    # FIXME: remove with PVE 10, as all nodes then keep identities
+    if (!$identity && ($conf->{lock} // '') eq 'migrate') {
+        my $meta = PVE::GuestIdentity::merge_identity($conf->{meta}, undef);
+        if (length($meta)) {
+            $conf->{meta} = $meta;
+        } else {
+            delete $conf->{meta};
+        }
+        PVE::Cluster::cfs_write_file($cfspath, $conf);
+        return;
+    }
 
     # a stored uid without valid rtime can only come from a manual edit
     if (!$identity || !defined($identity->{rtime})) {
@@ -137,6 +154,7 @@ sub __identity_replace {
     my ($class, $vmid, $identity) = @_;
 
     die "guest identities are not enabled for this guest type\n" if !$class->__identity_enabled();
+    die "missing guest identity\n" if !defined($identity);
 
     # the file cache only notices writes of other processes after an update
     PVE::Cluster::cfs_update();
@@ -389,7 +407,7 @@ sub drop_pending_meta {
 #   previous - the guest identity of that config, undef if it had none or did not exist
 #   previous-pending-uid - the pending uid of that config, see PVE::GuestIdentity::set_pending_uid
 #   assigned - the guest identity of the config after the write, undef with identities
-#     disabled
+#     disabled, or for a config without one under the migrate lock, see write_config
 sub create_and_lock_config {
     my ($class, $vmid, $allow_existing, $lock) = @_;
 

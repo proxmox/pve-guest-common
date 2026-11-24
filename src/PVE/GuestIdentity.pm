@@ -134,11 +134,13 @@ sub parse_identity($meta) {
 }
 
 # Returns the 'meta' property string $meta, which may be undef, with the identity members set to
-# $identity. All other members are kept as they are, also ones unknown to this version, which
-# PVE::JSONSchema::print_property_string would reject.
+# $identity, or without them if $identity is undef. All other members are kept as they are, also
+# ones unknown to this version, which PVE::JSONSchema::print_property_string would reject.
 sub merge_identity($meta, $identity) {
-    die "invalid guest identity uid\n" if !is_valid_uid($identity->{uid});
-    die "invalid guest identity rtime\n" if !is_valid_rtime($identity->{rtime});
+    if (defined($identity)) {
+        die "invalid guest identity uid\n" if !is_valid_uid($identity->{uid});
+        die "invalid guest identity rtime\n" if !is_valid_rtime($identity->{rtime});
+    }
 
     my (@plain, @members);
     for my $part (split(/,/, $meta // '')) {
@@ -150,7 +152,8 @@ sub merge_identity($meta, $identity) {
             push @plain, $part;
         }
     }
-    push @members, ['rtime', "rtime=$identity->{rtime}"], ['uid', "uid=$identity->{uid}"];
+    push @members, ['rtime', "rtime=$identity->{rtime}"], ['uid', "uid=$identity->{uid}"]
+        if defined($identity);
 
     # same order as PVE::JSONSchema::print_property_string uses, so that a guest type parsing and
     # printing the property string again does not change it

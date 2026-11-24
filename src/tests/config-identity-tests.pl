@@ -300,6 +300,50 @@ subtest 'none stored' => sub {
     ok(identity_of($class, 105), 'existing empty config gets an identity');
 };
 
+subtest 'none assigned under the migrate lock' => sub {
+    my $class = 'PVE::TestConfig';
+
+    set_file($class, 120, "meta: creation-qemu=10.1.0,ctime=1\nname: old\n");
+    my $conf = conf_of($class, 120);
+    $conf->{lock} = 'migrate';
+    $class->write_config(120, $conf);
+    ok(!identity_of($class, 120), 'config without identity gets none');
+    like(
+        file_of($class, 120),
+        qr/^lock: migrate\nmeta: creation-qemu=10\.1\.0,ctime=1\n/m,
+        'meta is written without identity members',
+    );
+
+    # copied from elsewhere, but not stored
+    $conf->{meta} = "creation-qemu=10.1.0,ctime=1,rtime=5,uid=$foreign_uid";
+    $class->write_config(120, $conf);
+    ok(!identity_of($class, 120), 'carried identity is not written');
+    like(file_of($class, 120), qr/^meta: creation-qemu=10\.1\.0,ctime=1$/m, 'members are kept');
+
+    $conf->{meta} = "rtime=5,uid=$foreign_uid";
+    $class->write_config(120, $conf);
+    ok(!defined($conf->{meta}), 'meta with only identity members is removed');
+    unlike(file_of($class, 120), qr/^meta:/m, 'and not written');
+
+    delete $conf->{lock};
+    $class->write_config(120, $conf);
+    my $identity = identity_of($class, 120);
+    ok($identity, 'removing the lock assigns an identity');
+    isnt($identity->{uid}, $foreign_uid, 'not the carried one');
+
+    # also if the parser of the guest type dropped 'meta'
+    $conf->{lock} = 'migrate';
+    delete $conf->{meta};
+    $class->write_config(120, $conf);
+    is_deeply(identity_of($class, 120), $identity, 'a stored identity is kept under the lock');
+
+    set_file($class, 121, "name: other\n");
+    $conf = conf_of($class, 121);
+    $conf->{lock} = 'backup';
+    $class->write_config(121, $conf);
+    ok(identity_of($class, 121), 'other locks do not keep the guest without identity');
+};
+
 subtest 'stored identity wins' => sub {
     my $class = 'PVE::TestConfig';
 

@@ -279,6 +279,19 @@ subtest 'merge identity' => sub {
         eval { PVE::GuestIdentity::merge_identity('ctime=1', $invalid) };
         ok($@, "invalid identity is rejected");
     }
+
+    for my $test (
+        [undef, '', 'no meta'],
+        ['rtime=5,uid=aaaaaaaaaaaaaaaaaaaa', '', 'only identity members'],
+        [
+            'ctime=1,rtime=5,uid=aaaaaaaaaaaaaaaaaaaa,zz-future=x',
+            'ctime=1,zz-future=x',
+            'others',
+        ],
+    ) {
+        my ($meta, $expected, $name) = @$test;
+        is(PVE::GuestIdentity::merge_identity($meta, undef), $expected, "no identity: $name");
+    }
 };
 
 subtest 'node version check' => sub {
