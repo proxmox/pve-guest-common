@@ -300,6 +300,21 @@ subtest 'none stored' => sub {
     ok(identity_of($class, 105), 'existing empty config gets an identity');
 };
 
+subtest 'stored identity check' => sub {
+    my $class = 'PVE::TestConfig';
+
+    ok(!$class->has_stored_identity(106), 'missing config has none');
+
+    set_file($class, 106, "meta: ctime=1\nname: old\n");
+    ok(!$class->has_stored_identity(106), 'config without identity has none');
+
+    set_file($class, 106, "meta: ctime=1,rtime=5,uid=$foreign_uid,zz-future=x\nname: old\n");
+    ok($class->has_stored_identity(106), 'identity next to members unknown to this version');
+
+    set_file($class, 106, "name: old\n\n[snap]\nmeta: rtime=1,uid=$foreign_uid\n");
+    ok(!$class->has_stored_identity(106), 'identity of a snapshot does not count');
+};
+
 subtest 'none assigned under the migrate lock' => sub {
     my $class = 'PVE::TestConfig';
 

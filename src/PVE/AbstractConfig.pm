@@ -97,6 +97,16 @@ sub __identity_read_stored {
     return { identity => PVE::GuestIdentity::parse_identity_from_raw_config($raw) };
 }
 
+# Returns whether the config file of $vmid on this node stores a guest identity, which a node that
+# does not keep identities drops on its next write of the config. Like __identity_read_stored, this
+# reads the file and not the parsed config, whose parser may have dropped 'meta'.
+sub has_stored_identity {
+    my ($class, $vmid) = @_;
+
+    my $stored = $class->__identity_read_stored($vmid);
+    return $stored && defined($stored->{identity}) ? 1 : 0;
+}
+
 # Generate and write config file for this VM/CT
 #
 # With guest identities enabled for the class, the identity stored in the existing config file
