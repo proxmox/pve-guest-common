@@ -1,3 +1,13 @@
+libpve-guest-common-perl (6.0.14) trixie; urgency=medium
+
+  * config: do not assign a guest identity to a guest without one while its
+    config has the migrate lock. A target node with pve-manager before 9.2.33
+    would otherwise drop the whole 'meta' property, including the creation
+    QEMU version of a VM, which for example decides the pinned machine
+    version of a Windows VM without explicit machine version.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 24 Nov 2026 09:32:38 +0100
+
 libpve-guest-common-perl (6.0.13) trixie; urgency=medium
 
   * guest identity: do not refuse a migration or clone to a node that has not
